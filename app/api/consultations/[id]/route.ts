@@ -73,15 +73,25 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       return jsonSuccess(existing);
     }
 
+    // Optimistic concurrency check: fails atomically if another request modified the row.
     const { data: updated, error: updateError } = await supabase
       .from("consultations")
       .update(transition.patch)
       .eq("id", consultationId)
       .eq("user_id", user.id)
+      .eq("status", existing.status)
+      .eq("updated_at", existing.updated_at)
       .select("*")
-      .single();
+      .maybeSingle();
 
     if (updateError) throw updateError;
+    if (!updated) {
+      throw new ApiError(
+        409,
+        "CONCURRENT_MODIFICATION",
+        "This consultation was modified by another request. Please refresh and try again.",
+      );
+    }
 
     return jsonSuccess(updated);
   } catch (error) {

@@ -1,5 +1,6 @@
 import { type NextRequest } from "next/server";
 import { requireAuth } from "@/lib/api/auth";
+import { parseJsonBody } from "@/lib/api/request";
 import { ApiError, handleApiError, jsonSuccess } from "@/lib/api/response";
 import { buildConsultationUpdate } from "@/lib/domain/consultation-transitions";
 import {
@@ -40,14 +41,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     const { supabase, user } = await requireAuth();
     const { id } = await context.params;
     const consultationId = uuidParamSchema.parse(id);
-
-    let body: unknown;
-    try {
-      body = await request.json();
-    } catch {
-      throw new ApiError(400, "INVALID_JSON", "Request body must be valid JSON.");
-    }
-
+    const body = await parseJsonBody(request);
     const input = updateConsultationSchema.parse(body);
 
     // Explicitly scope to caller's own row (defense-in-depth alongside RLS).

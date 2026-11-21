@@ -7,7 +7,8 @@ import {
   parseListQuery,
   sanitizeSearchTerm,
 } from "@/lib/api/consultations-query";
-import { ApiError, handleApiError, jsonSuccess } from "@/lib/api/response";
+import { parseJsonBody } from "@/lib/api/request";
+import { handleApiError, jsonSuccess } from "@/lib/api/response";
 import { createConsultationSchema } from "@/lib/validators/consultation";
 
 export async function GET(request: NextRequest) {
@@ -53,14 +54,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const { supabase, user } = await requireAuth();
-
-    let body: unknown;
-    try {
-      body = await request.json();
-    } catch {
-      throw new ApiError(400, "INVALID_JSON", "Request body must be valid JSON.");
-    }
-
+    const body = await parseJsonBody(request);
     const input = createConsultationSchema.parse(body);
 
     const { data, error } = await supabase

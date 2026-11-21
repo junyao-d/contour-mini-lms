@@ -1,0 +1,1 @@
+-- Local development seed data will be populated in Step 2 (Database Schema, RBAC & Seed Data).

@@ -177,6 +177,113 @@ create table public.consultations (
     where (status = 'scheduled')
 );
 
+-- Defense-in-depth trigger enforcing consultation business rules and immutable
+-- audit columns at the database layer (blocks direct PostgREST bypasses).
+create or replace function public.guard_consultation_write()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  -- Allow migrations, seed scripts, and service-role admin operations
+  if current_user in ('postgres', 'supabase_admin', 'service_role')
+     or coalesce(current_setting('request.jwt.claim.role', true), '') = 'service_role' then
+    return new;
+  end if;
+
+  if tg_op = 'INSERT' then
+    if new.scheduled_at <= now() then
+      raise exception 'Consultation datetime must be in the future'
+        using errcode = '22023';
+    end if;
+
+    new.status := 'scheduled';
+    new.completed_at := null;
+    new.cancelled_at := null;
+    new.rescheduled_at := null;
+    new.created_at := now();
+    return new;
+  end if;
+
+  -- UPDATE rules: lock immutable fields
+  if new.id is distinct from old.id
+     or new.user_id is distinct from old.user_id
+     or new.created_at is distinct from old.created_at
+     or new.first_name is distinct from old.first_name
+     or new.last_name is distinct from old.last_name then
+    raise exception 'Immutable consultation fields cannot be modified'
+      using errcode = '42501';
+  end if;
+
+  if old.status = 'cancelled' then
+    raise exception 'Cancelled consultations cannot be modified'
+      using errcode = '22023';
+  end if;
+
+  if old.status = 'completed' then
+    if new.status = 'cancelled' then
+      raise exception 'Completed consultations cannot be cancelled'
+        using errcode = '22023';
+    end if;
+    if new.scheduled_at is distinct from old.scheduled_at
+       or new.reason is distinct from old.reason then
+      raise exception 'Completed consultations cannot be rescheduled or edited'
+        using errcode = '22023';
+    end if;
+
+    new.completed_at := case when new.status = 'scheduled' then null else old.completed_at end;
+    new.cancelled_at := null;
+    new.rescheduled_at := old.rescheduled_at;
+    return new;
+  end if;
+
+  -- old.status = 'scheduled'
+  if new.status = 'cancelled' then
+    if new.scheduled_at is distinct from old.scheduled_at
+       or new.reason is distinct from old.reason then
+      raise exception 'Cannot reschedule or edit a consultation while cancelling'
+        using errcode = '22023';
+    end if;
+    new.cancelled_at := now();
+    new.completed_at := null;
+    new.rescheduled_at := old.rescheduled_at;
+    return new;
+  end if;
+
+  if new.status = 'completed' then
+    if new.scheduled_at is distinct from old.scheduled_at
+       or new.reason is distinct from old.reason then
+      raise exception 'Cannot reschedule or edit a consultation while completing'
+        using errcode = '22023';
+    end if;
+    new.completed_at := now();
+    new.cancelled_at := null;
+    new.rescheduled_at := old.rescheduled_at;
+    return new;
+  end if;
+
+  -- Staying 'scheduled' (reschedule / reason edit)
+  new.completed_at := null;
+  new.cancelled_at := null;
+  if new.scheduled_at is distinct from old.scheduled_at then
+    if new.scheduled_at <= now() then
+      raise exception 'Consultation datetime must be in the future'
+        using errcode = '22023';
+    end if;
+    new.rescheduled_at := now();
+  else
+    new.rescheduled_at := old.rescheduled_at;
+  end if;
+
+  return new;
+end;
+$$;
+
+create trigger trg_consultations_guard_write
+  before insert or update on public.consultations
+  for each row
+  execute function public.guard_consultation_write();
+
 create trigger trg_consultations_set_updated_at
   before update on public.consultations
   for each row

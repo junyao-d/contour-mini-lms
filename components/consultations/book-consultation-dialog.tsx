@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -35,6 +35,45 @@ export function BookConsultationDialog({
   profileLastName,
   onSuccess,
 }: BookConsultationDialogProps) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Book a Consultation</DialogTitle>
+          <DialogDescription>
+            Schedule an upcoming consultation session. Active consultations must
+            be spaced at least {MIN_CONSULTATION_GAP_MINUTES} minutes apart.
+          </DialogDescription>
+        </DialogHeader>
+
+        {/* DialogContent unmounts on close, so the form state resets on every open. */}
+        <BookConsultationForm
+          profileFirstName={profileFirstName}
+          profileLastName={profileLastName}
+          onCancel={() => onOpenChange(false)}
+          onBooked={() => {
+            onOpenChange(false);
+            onSuccess();
+          }}
+        />
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+interface BookConsultationFormProps {
+  profileFirstName: string | null;
+  profileLastName: string | null;
+  onCancel: () => void;
+  onBooked: () => void;
+}
+
+function BookConsultationForm({
+  profileFirstName,
+  profileLastName,
+  onCancel,
+  onBooked,
+}: BookConsultationFormProps) {
   const isFirstNameLocked = Boolean(profileFirstName?.trim());
   const isLastNameLocked = Boolean(profileLastName?.trim());
 
@@ -44,16 +83,6 @@ export function BookConsultationDialog({
   const [scheduledAt, setScheduledAt] = useState(getDefaultBookingDateTime);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  useEffect(() => {
-    if (open) {
-      setFirstName(profileFirstName ?? "");
-      setLastName(profileLastName ?? "");
-      setReason("");
-      setScheduledAt(getDefaultBookingDateTime());
-      setError(null);
-    }
-  }, [open, profileFirstName, profileLastName]);
 
   const handleSubmit = async (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -89,8 +118,7 @@ export function BookConsultationDialog({
         return;
       }
 
-      onOpenChange(false);
-      onSuccess();
+      onBooked();
     } catch {
       setError("Network error while booking consultation. Please try again.");
     } finally {
@@ -99,92 +127,80 @@ export function BookConsultationDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Book a Consultation</DialogTitle>
-          <DialogDescription>
-            Schedule an upcoming consultation session. Active consultations must
-            be spaced at least {MIN_CONSULTATION_GAP_MINUTES} minutes apart.
-          </DialogDescription>
-        </DialogHeader>
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="grid grid-cols-2 gap-3">
+        <div className="grid gap-1.5">
+          <Label htmlFor="book-first-name">First Name</Label>
+          <Input
+            id="book-first-name"
+            value={firstName}
+            onChange={(e) => setFirstName(e.target.value)}
+            readOnly={isFirstNameLocked}
+            required
+            maxLength={100}
+            className={isFirstNameLocked ? "bg-muted text-muted-foreground" : ""}
+          />
+        </div>
+        <div className="grid gap-1.5">
+          <Label htmlFor="book-last-name">Last Name</Label>
+          <Input
+            id="book-last-name"
+            value={lastName}
+            onChange={(e) => setLastName(e.target.value)}
+            readOnly={isLastNameLocked}
+            required
+            maxLength={100}
+            className={isLastNameLocked ? "bg-muted text-muted-foreground" : ""}
+          />
+        </div>
+      </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
-            <div className="grid gap-1.5">
-              <Label htmlFor="book-first-name">First Name</Label>
-              <Input
-                id="book-first-name"
-                value={firstName}
-                onChange={(e) => setFirstName(e.target.value)}
-                readOnly={isFirstNameLocked}
-                required
-                maxLength={100}
-                className={isFirstNameLocked ? "bg-muted text-muted-foreground" : ""}
-              />
-            </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor="book-last-name">Last Name</Label>
-              <Input
-                id="book-last-name"
-                value={lastName}
-                onChange={(e) => setLastName(e.target.value)}
-                readOnly={isLastNameLocked}
-                required
-                maxLength={100}
-                className={isLastNameLocked ? "bg-muted text-muted-foreground" : ""}
-              />
-            </div>
-          </div>
+      {(isFirstNameLocked || isLastNameLocked) && (
+        <p className="text-xs text-muted-foreground">
+          Name is prefilled from your account profile.
+        </p>
+      )}
 
-          {(isFirstNameLocked || isLastNameLocked) && (
-            <p className="text-xs text-muted-foreground">
-              Name is prefilled from your account profile.
-            </p>
-          )}
+      <div className="grid gap-1.5">
+        <Label htmlFor="book-datetime">Date &amp; Time</Label>
+        <Input
+          id="book-datetime"
+          type="datetime-local"
+          value={scheduledAt}
+          min={toDateTimeLocalValue(new Date())}
+          onChange={(e) => setScheduledAt(e.target.value)}
+          required
+        />
+      </div>
 
-          <div className="grid gap-1.5">
-            <Label htmlFor="book-datetime">Date &amp; Time</Label>
-            <Input
-              id="book-datetime"
-              type="datetime-local"
-              value={scheduledAt}
-              min={toDateTimeLocalValue(new Date())}
-              onChange={(e) => setScheduledAt(e.target.value)}
-              required
-            />
-          </div>
+      <div className="grid gap-1.5">
+        <Label htmlFor="book-reason">Reason for Consultation</Label>
+        <Textarea
+          id="book-reason"
+          placeholder="Describe the topic, assignment, or questions you want to cover..."
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          required
+          maxLength={1000}
+          rows={4}
+        />
+      </div>
 
-          <div className="grid gap-1.5">
-            <Label htmlFor="book-reason">Reason for Consultation</Label>
-            <Textarea
-              id="book-reason"
-              placeholder="Describe the topic, assignment, or questions you want to cover..."
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              required
-              maxLength={1000}
-              rows={4}
-            />
-          </div>
+      {error && <p className="text-sm text-destructive">{error}</p>}
 
-          {error && <p className="text-sm text-destructive">{error}</p>}
-
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              disabled={isSubmitting}
-            >
-              Cancel
-            </Button>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? "Booking..." : "Book Consultation"}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+      <DialogFooter>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onCancel}
+          disabled={isSubmitting}
+        >
+          Cancel
+        </Button>
+        <Button type="submit" disabled={isSubmitting}>
+          {isSubmitting ? "Booking..." : "Book Consultation"}
+        </Button>
+      </DialogFooter>
+    </form>
   );
 }

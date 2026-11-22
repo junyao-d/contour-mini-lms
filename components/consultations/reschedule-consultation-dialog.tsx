@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -28,22 +28,55 @@ export function RescheduleConsultationDialog({
   onOpenChange,
   onSuccess,
 }: RescheduleConsultationDialogProps) {
-  const [scheduledAt, setScheduledAt] = useState("");
-  const [reason, setReason] = useState("");
+  return (
+    <Dialog open={Boolean(consultation)} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Reschedule Consultation</DialogTitle>
+          <DialogDescription>
+            Choose a new upcoming date and time (at least{" "}
+            {MIN_CONSULTATION_GAP_MINUTES} minutes apart from other active
+            consultations) or update your consultation reason.
+          </DialogDescription>
+        </DialogHeader>
+
+        {/* Keyed by id so the form re-initialises from props for each consultation. */}
+        {consultation && (
+          <RescheduleConsultationForm
+            key={consultation.id}
+            consultation={consultation}
+            onCancel={() => onOpenChange(false)}
+            onRescheduled={() => {
+              onOpenChange(false);
+              onSuccess();
+            }}
+          />
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+interface RescheduleConsultationFormProps {
+  consultation: Consultation;
+  onCancel: () => void;
+  onRescheduled: () => void;
+}
+
+function RescheduleConsultationForm({
+  consultation,
+  onCancel,
+  onRescheduled,
+}: RescheduleConsultationFormProps) {
+  const [scheduledAt, setScheduledAt] = useState(() =>
+    toDateTimeLocalValue(consultation.scheduled_at),
+  );
+  const [reason, setReason] = useState(consultation.reason);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  useEffect(() => {
-    if (consultation) {
-      setScheduledAt(toDateTimeLocalValue(consultation.scheduled_at));
-      setReason(consultation.reason);
-      setError(null);
-    }
-  }, [consultation]);
-
   const handleSubmit = async (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!consultation) return;
     setError(null);
 
     const parsedDate = new Date(scheduledAt);
@@ -78,8 +111,7 @@ export function RescheduleConsultationDialog({
         return;
       }
 
-      onOpenChange(false);
-      onSuccess();
+      onRescheduled();
     } catch {
       setError("Network error while rescheduling. Please try again.");
     } finally {
@@ -88,59 +120,46 @@ export function RescheduleConsultationDialog({
   };
 
   return (
-    <Dialog open={Boolean(consultation)} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Reschedule Consultation</DialogTitle>
-          <DialogDescription>
-            Choose a new upcoming date and time (at least{" "}
-            {MIN_CONSULTATION_GAP_MINUTES} minutes apart from other active
-            consultations) or update your consultation reason.
-          </DialogDescription>
-        </DialogHeader>
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="grid gap-1.5">
+        <Label htmlFor="reschedule-datetime">New Date &amp; Time</Label>
+        <Input
+          id="reschedule-datetime"
+          type="datetime-local"
+          value={scheduledAt}
+          min={toDateTimeLocalValue(new Date())}
+          onChange={(e) => setScheduledAt(e.target.value)}
+          required
+        />
+      </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid gap-1.5">
-            <Label htmlFor="reschedule-datetime">New Date &amp; Time</Label>
-            <Input
-              id="reschedule-datetime"
-              type="datetime-local"
-              value={scheduledAt}
-              min={toDateTimeLocalValue(new Date())}
-              onChange={(e) => setScheduledAt(e.target.value)}
-              required
-            />
-          </div>
+      <div className="grid gap-1.5">
+        <Label htmlFor="reschedule-reason">Reason for Consultation</Label>
+        <Textarea
+          id="reschedule-reason"
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          required
+          maxLength={1000}
+          rows={4}
+        />
+      </div>
 
-          <div className="grid gap-1.5">
-            <Label htmlFor="reschedule-reason">Reason for Consultation</Label>
-            <Textarea
-              id="reschedule-reason"
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              required
-              maxLength={1000}
-              rows={4}
-            />
-          </div>
+      {error && <p className="text-sm text-destructive">{error}</p>}
 
-          {error && <p className="text-sm text-destructive">{error}</p>}
-
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              disabled={isSubmitting}
-            >
-              Keep Current Time
-            </Button>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? "Saving..." : "Save Changes"}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+      <DialogFooter>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onCancel}
+          disabled={isSubmitting}
+        >
+          Keep Current Time
+        </Button>
+        <Button type="submit" disabled={isSubmitting}>
+          {isSubmitting ? "Saving..." : "Save Changes"}
+        </Button>
+      </DialogFooter>
+    </form>
   );
 }

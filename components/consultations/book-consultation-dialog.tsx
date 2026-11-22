@@ -157,7 +157,7 @@ function BookConsultationForm({
 
       {(isFirstNameLocked || isLastNameLocked) && (
         <p className="text-xs text-muted-foreground">
-          Name is prefilled from your account profile.
+          From your profile
         </p>
       )}
 

@@ -34,7 +34,8 @@ export async function GET(request: NextRequest) {
     }
 
     const [{ data, count, error }, summary] = await Promise.all([
-      query.order(column, { ascending }).range(from, to),
+      // Tiebreak on id so equal timestamps paginate deterministically.
+      query.order(column, { ascending }).order("id").range(from, to),
       fetchConsultationSummary(supabase),
     ]);
 

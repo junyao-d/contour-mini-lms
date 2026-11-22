@@ -119,7 +119,7 @@ Responses are `{ data, meta? }` on success and `{ error: { code, message, detail
 | Endpoint | Method | Who | Body / query | Notable errors |
 | --- | --- | --- | --- | --- |
 | `/api/me` | GET | signed in | — | 401 |
-| `/api/consultations` | GET | student | `status`, `search`, `sort`, `page`, `pageSize` | 400, 401, 403 |
+| `/api/consultations` | GET | student | `status` filter: `all`, `upcoming` (scheduled and not yet started; derived, not a stored status), `scheduled`, `completed`, `cancelled`; `search`, `sort`, `page`, `pageSize`; optional `from`/`to` to limit `scheduled_at` | 400, 401, 403 |
 | `/api/consultations` | POST | student | `{ first_name, last_name, reason, scheduled_at, duration_minutes? }` (default 15) | 400, 403, 409 `TIME_SLOT_CONFLICT`, 415 |
 | `/api/consultations/[id]` | GET | owner or admin | — | 404 (also for other students' ids) |
 | `/api/consultations/[id]` | PATCH | owner | `{ action: "reschedule", scheduled_at, duration_minutes?, reason? }`, `{ action: "toggle_complete", completed }`, `{ action: "cancel" }` | 400, 404, 409 `INVALID_STATUS_TRANSITION` / `CONCURRENT_MODIFICATION` / `TIME_SLOT_CONFLICT`, 415 |
@@ -136,6 +136,7 @@ Datetime rule violations return 400 `VALIDATION_ERROR`; status rule violations r
 - **Constants are defined twice**, once in TS and once in SQL (session lengths, 90-day horizon, 15-minute grid), linked only by comments.
 - **List filters aren't in the URL**, so a refresh resets them.
 - **No E2E tests.** API handlers are tested with a mocked Supabase client and the database is tested with pgTAP, but no browser tests cover the two together.
+- **Database types are hand-written** in `lib/types/database.ts` instead of generated with `supabase gen types`, so schema changes have to be mirrored by hand.
 - **The schema is a single migration file** that was edited in place during development. Any change after the first deploy should go in a new migration.
 
 ### Security & performance

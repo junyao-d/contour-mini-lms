@@ -176,13 +176,13 @@ All domain reads and mutations flow through RESTful Next.js Route Handlers (`app
 
 ```mermaid
 flowchart LR
-    Browser["Browser\n(Student / Admin)"]
-    Proxy["Next.js Proxy (proxy.ts)\nSession Refresh + Page Guards"]
-    Pages["App Router Pages\n/, /auth/*, /dashboard, /admin"]
-    API["REST API Route Handlers\n/api/me\n/api/consultations/**\n/api/admin/consultations"]
-    Domain["Shared Core\nZod Validators + State Machine\n+ CSRF/Auth Helpers"]
+    Browser["Browser<br/>(Student / Admin)"]
+    Proxy["Next.js Proxy (proxy.ts)<br/>Session Refresh + Page Guards"]
+    Pages["App Router Pages<br/>/, /auth/*, /dashboard, /admin"]
+    API["REST API Route Handlers<br/>/api/me<br/>/api/consultations/**<br/>/api/admin/consultations"]
+    Domain["Shared Core<br/>Zod Validators + State Machine<br/>+ CSRF/Auth Helpers"]
     Auth["Supabase Auth"]
-    DB["PostgreSQL 17\nRLS + Guard Triggers\n+ 60-min GiST Constraint"]
+    DB["PostgreSQL 17<br/>RLS + Guard Triggers<br/>+ 60-min GiST Constraint"]
 
     Browser --> Proxy
     Proxy --> Pages

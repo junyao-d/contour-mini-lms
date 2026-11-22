@@ -14,7 +14,7 @@ vi.mock("@/lib/api/auth", () => ({
   requireAdmin: (...args: unknown[]) => mockRequireAdmin(...args),
 }));
 
-import { GET as getMe } from "@/app/api/me/route";
+import { GET as getMe, PATCH as patchMe } from "@/app/api/me/route";
 import { POST as createConsultation } from "@/app/api/consultations/route";
 import { GET as getAdminConsultations } from "@/app/api/admin/consultations/route";
 import { PATCH as patchConsultation } from "@/app/api/consultations/[id]/route";
@@ -454,5 +454,82 @@ describe("GET /api/admin/users", () => {
       new NextRequest("http://localhost:3000/api/admin/users?role=tutor"),
     );
     expect(res.status).toBe(400);
+  });
+});
+
+describe("PATCH /api/me", () => {
+  const userId = "22222222-2222-4222-8222-222222222222";
+  const jsonRequest = (body: unknown) =>
+    new NextRequest("http://localhost:3000/api/me", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("returns 401 when unauthenticated", async () => {
+    mockRequireAuth.mockRejectedValueOnce(
+      new ApiError(401, "UNAUTHORIZED", "Authentication required."),
+    );
+    const res = await patchMe(jsonRequest({ first_name: "A", last_name: "B" }));
+    expect(res.status).toBe(401);
+  });
+
+  it("returns 400 with field details for a blank name", async () => {
+    mockRequireAuth.mockResolvedValueOnce({ supabase: {}, user: { id: userId } });
+    const res = await patchMe(jsonRequest({ first_name: "  ", last_name: "Chen" }));
+    expect(res.status).toBe(400);
+    const json = await res.json();
+    expect(json.error.code).toBe("VALIDATION_ERROR");
+    expect(json.error.details.first_name).toBeDefined();
+  });
+
+  it("updates only the caller's names, ignoring email and role in the body", async () => {
+    const updated = {
+      id: userId,
+      email: "alice@contour-lms.local",
+      first_name: "Alicia",
+      last_name: "Chen",
+      role: "student",
+    };
+    const maybeSingle = vi.fn().mockResolvedValue({ data: updated, error: null });
+    const select = vi.fn(() => ({ maybeSingle }));
+    const eq = vi.fn(() => ({ select }));
+    const update = vi.fn(() => ({ eq }));
+    const from = vi.fn(() => ({ update }));
+    mockRequireAuth.mockResolvedValueOnce({ supabase: { from }, user: { id: userId } });
+
+    const res = await patchMe(
+      jsonRequest({
+        first_name: " Alicia ",
+        last_name: "Chen",
+        email: "evil@example.com",
+        role: "admin",
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(from).toHaveBeenCalledWith("profiles");
+    expect(update).toHaveBeenCalledWith({ first_name: "Alicia", last_name: "Chen" });
+    expect(eq).toHaveBeenCalledWith("id", userId);
+    expect((await res.json()).data).toEqual(updated);
+  });
+
+  it("maps a database permission error to 403", async () => {
+    const maybeSingle = vi.fn().mockResolvedValue({
+      data: null,
+      error: { code: "42501", message: "permission denied for table profiles" },
+    });
+    const from = vi.fn(() => ({
+      update: () => ({ eq: () => ({ select: () => ({ maybeSingle }) }) }),
+    }));
+    mockRequireAuth.mockResolvedValueOnce({ supabase: { from }, user: { id: userId } });
+
+    const res = await patchMe(jsonRequest({ first_name: "A", last_name: "B" }));
+    expect(res.status).toBe(403);
+    expect((await res.json()).error.message).not.toContain("permission denied");
   });
 });

@@ -5,6 +5,7 @@ import {
   updateConsultationSchema,
   uuidParamSchema,
 } from "@/lib/validators/consultation";
+import { updateProfileSchema } from "@/lib/validators/profile";
 
 const SLOT_MS = 15 * 60 * 1000;
 // Next 15-minute boundary at least 2 hours ahead
@@ -163,5 +164,28 @@ describe("consultation validators", () => {
     expect(listConsultationsQuerySchema.safeParse({ page: 0 }).success).toBe(
       false,
     );
+  });
+});
+
+describe("profile validator", () => {
+  it("trims names and strips any non-name fields", () => {
+    const result = updateProfileSchema.parse({
+      first_name: "  Alice ",
+      last_name: " Chen ",
+      email: "evil@example.com",
+      role: "admin",
+    });
+    expect(result).toEqual({ first_name: "Alice", last_name: "Chen" });
+  });
+
+  it("rejects blank or overlong names", () => {
+    expect(
+      updateProfileSchema.safeParse({ first_name: "   ", last_name: "Chen" }).success,
+    ).toBe(false);
+    expect(
+      updateProfileSchema.safeParse({ first_name: "A", last_name: "x".repeat(101) })
+        .success,
+    ).toBe(false);
+    expect(updateProfileSchema.safeParse({ first_name: "Alice" }).success).toBe(false);
   });
 });

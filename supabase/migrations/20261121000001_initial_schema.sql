@@ -404,8 +404,8 @@ grant execute on function public.is_admin() to authenticated, service_role;
 alter table public.profiles enable row level security;
 alter table public.consultations enable row level security;
 
--- Profiles policies: SELECT-only for authenticated users (own profile or Admin).
--- No client INSERT/UPDATE/DELETE policies; provisioning & email sync are trigger-driven.
+-- Profiles policies: users read their own profile (admins read all) and may update only
+-- their own row. No client INSERT/DELETE; provisioning & email sync are trigger-driven.
 create policy "profiles_select_own_or_admin"
   on public.profiles
   for select
@@ -414,6 +414,19 @@ create policy "profiles_select_own_or_admin"
     (select auth.uid()) = id
     or (select public.is_admin())
   );
+
+create policy "profiles_update_own"
+  on public.profiles
+  for update
+  to authenticated
+  using ((select auth.uid()) = id)
+  with check ((select auth.uid()) = id);
+
+-- Column privileges: the only profile fields a client may change are its own names
+-- (My Profile). email follows auth.users and role is admin-managed; updating either
+-- fails with 42501 before prevent_role_change is even reached.
+revoke update on public.profiles from anon, authenticated;
+grant update (first_name, last_name) on public.profiles to authenticated;
 
 -- Consultations policies:
 -- 1. Students read their own consultations; Admins read all consultations system-wide.

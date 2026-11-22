@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   CalendarClock,
   CheckCircle2,
@@ -8,6 +9,7 @@ import {
   Plus,
   RotateCcw,
   Search,
+  UserRound,
   XCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -32,6 +34,7 @@ import { CancelConsultationDialog } from "@/components/consultations/cancel-cons
 import { RescheduleConsultationDialog } from "@/components/consultations/reschedule-consultation-dialog";
 import { StatusBadge } from "@/components/consultations/status-badge";
 import { SummaryCards } from "@/components/consultations/summary-cards";
+import { ProfileDialog } from "@/components/profile/profile-dialog";
 import { useConsultationList } from "@/hooks/use-consultation-list";
 import { hasStarted } from "@/lib/domain/consultation-transitions";
 import {
@@ -46,11 +49,13 @@ import type {
 } from "@/lib/validators/consultation";
 
 interface StudentDashboardProps {
+  profileEmail: string;
   profileFirstName: string | null;
   profileLastName: string | null;
 }
 
 export function StudentDashboard({
+  profileEmail,
   profileFirstName,
   profileLastName,
 }: StudentDashboardProps) {
@@ -75,7 +80,9 @@ export function StudentDashboard({
   } = useConsultationList<Consultation>("/api/consultations");
 
   const [togglingId, setTogglingId] = useState<string | null>(null);
+  const router = useRouter();
   const [bookOpen, setBookOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
   const [rescheduleTarget, setRescheduleTarget] = useState<Consultation | null>(
     null,
   );
@@ -126,10 +133,16 @@ export function StudentDashboard({
             Book, reschedule, or cancel consultations, and mark them as complete once they have taken place.
           </p>
         </div>
-        <Button onClick={() => setBookOpen(true)}>
-          <Plus className="mr-1.5 h-4 w-4" />
-          Book Consultation
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setProfileOpen(true)}>
+            <UserRound className="mr-1.5 h-4 w-4" />
+            My Profile
+          </Button>
+          <Button onClick={() => setBookOpen(true)}>
+            <Plus className="mr-1.5 h-4 w-4" />
+            Book Consultation
+          </Button>
+        </div>
       </div>
 
       <SummaryCards summary={summary} />
@@ -353,6 +366,16 @@ export function StudentDashboard({
           </div>
         </div>
       )}
+
+      <ProfileDialog
+        open={profileOpen}
+        onOpenChange={setProfileOpen}
+        email={profileEmail}
+        firstName={profileFirstName}
+        lastName={profileLastName}
+        // Re-render the server page so the new names reach the booking form.
+        onSaved={() => router.refresh()}
+      />
 
       <BookConsultationDialog
         open={bookOpen}

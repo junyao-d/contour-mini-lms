@@ -16,6 +16,7 @@ async function DashboardContent() {
 
   return (
     <StudentDashboard
+      profileEmail={session.profile.email}
       profileFirstName={session.profile.first_name}
       profileLastName={session.profile.last_name}
     />

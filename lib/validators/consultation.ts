@@ -6,7 +6,7 @@ import {
   SLOT_GRANULARITY_MINUTES,
 } from "@/lib/domain/consultation-constants";
 
-const trimmedNameSchema = (label: string) =>
+export const trimmedNameSchema = (label: string) =>
   z
     .string()
     .trim()

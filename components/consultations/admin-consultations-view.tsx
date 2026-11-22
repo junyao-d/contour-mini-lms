@@ -15,7 +15,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StatusBadge } from "@/components/consultations/status-badge";
 import { SummaryCards } from "@/components/consultations/summary-cards";
 import { useConsultationList } from "@/hooks/use-consultation-list";
-import { formatDateTime } from "@/lib/format";
+import { formatDateTime, formatSessionRange } from "@/lib/format";
 import type { AdminConsultation } from "@/lib/types/database";
 import type {
   ConsultationSortOption,
@@ -162,7 +162,7 @@ export function AdminConsultationsView() {
                   </td>
 
                   <td className="whitespace-nowrap px-4 py-3 align-top">
-                    <div>{formatDateTime(item.scheduled_at)}</div>
+                    <div>{formatSessionRange(item.scheduled_at, item.duration_minutes)}</div>
                     {item.rescheduled_at && (
                       <div className="text-xs text-muted-foreground">
                         Rescheduled {formatDateTime(item.rescheduled_at)}

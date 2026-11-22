@@ -34,7 +34,11 @@ import { StatusBadge } from "@/components/consultations/status-badge";
 import { SummaryCards } from "@/components/consultations/summary-cards";
 import { useConsultationList } from "@/hooks/use-consultation-list";
 import { hasStarted } from "@/lib/domain/consultation-transitions";
-import { formatDateTime, readApiErrorMessage } from "@/lib/format";
+import {
+  formatDateTime,
+  formatSessionRange,
+  readApiErrorMessage,
+} from "@/lib/format";
 import type { Consultation } from "@/lib/types/database";
 import type {
   ConsultationSortOption,
@@ -228,7 +232,7 @@ export function StudentDashboard({
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="inline-flex items-center gap-1.5 font-semibold">
                         <CalendarClock className="h-4 w-4 text-muted-foreground" />
-                        {formatDateTime(item.scheduled_at, { withWeekday: true })}
+                        {formatSessionRange(item.scheduled_at, item.duration_minutes)}
                       </span>
                       <StatusBadge status={item.status} scheduledAt={item.scheduled_at} />
                     </div>

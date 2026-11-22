@@ -11,7 +11,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { formatDateTime, readApiErrorMessage } from "@/lib/format";
+import { formatSessionRange, readApiErrorMessage } from "@/lib/format";
 import type { Consultation } from "@/lib/types/database";
 
 interface CancelConsultationDialogProps {
@@ -73,7 +73,7 @@ export function CancelConsultationDialog({
               <>
                 This will permanently cancel your consultation scheduled for{" "}
                 <strong className="text-foreground">
-                  {formatDateTime(consultation.scheduled_at)}
+                  {formatSessionRange(consultation.scheduled_at, consultation.duration_minutes)}
                 </strong>
                 . Cancelled consultations cannot be reopened, though you can
                 book a new one anytime.

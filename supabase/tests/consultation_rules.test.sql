@@ -4,7 +4,26 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(16);
+select plan(22);
+
+-- Setup as postgres (bypasses the guard trigger): consultations that already started,
+-- which a student cannot create directly because bookings must be in the future.
+insert into public.consultations (id, user_id, first_name, last_name, reason, scheduled_at, status, completed_at)
+values
+  ('c0000000-0000-4000-8000-000000000003', '22222222-2222-4222-8222-222222222222',
+   'Alice', 'Chen', 'Completed in the past', date_trunc('hour', now()) - interval '2 days',
+   'completed', now()),
+  ('c0000000-0000-4000-8000-000000000005', '22222222-2222-4222-8222-222222222222',
+   'Alice', 'Chen', 'Completed, will be reopened', date_trunc('hour', now()) - interval '5 days',
+   'completed', now());
+
+insert into public.consultations (id, user_id, first_name, last_name, reason, scheduled_at)
+values
+  ('c0000000-0000-4000-8000-000000000006', '22222222-2222-4222-8222-222222222222',
+   'Alice', 'Chen', 'Overlaps the completed one',
+   date_trunc('hour', now()) - interval '5 days' + interval '30 minutes'),
+  ('c0000000-0000-4000-8000-000000000008', '22222222-2222-4222-8222-222222222222',
+   'Alice', 'Chen', 'Started yesterday', date_trunc('hour', now()) - interval '1 day');
 
 set local role authenticated;
 set local request.jwt.claims = '{"sub":"22222222-2222-4222-8222-222222222222","role":"authenticated"}';
@@ -66,15 +85,6 @@ select throws_ok(
   'modifying a cancelled consultation is rejected'
 );
 
-select lives_ok(
-  $$ insert into public.consultations (id, user_id, first_name, last_name, reason, scheduled_at)
-     values ('c0000000-0000-4000-8000-000000000003', '22222222-2222-4222-8222-222222222222',
-             'Alice', 'Chen', 'To complete', date_trunc('hour', now()) + interval '40 days 2 hours');
-     update public.consultations set status = 'completed'
-     where id = 'c0000000-0000-4000-8000-000000000003' $$,
-  'setup: book and complete a consultation'
-);
-
 select throws_ok(
   $$ update public.consultations set status = 'cancelled'
      where id = 'c0000000-0000-4000-8000-000000000003' $$,
@@ -88,7 +98,7 @@ select throws_ok(
 select throws_ok(
   $$ insert into public.consultations (user_id, first_name, last_name, reason, scheduled_at)
      values ('22222222-2222-4222-8222-222222222222', 'Alice', 'Chen', 'Past booking',
-             now() - interval '1 day') $$,
+             date_trunc('hour', now()) - interval '1 day') $$,
   '22023', null,
   'booking a past datetime directly via the table is rejected'
 );
@@ -115,27 +125,83 @@ select is(
 -- ---------------------------------------------------------------------------
 -- 7. Marking a completed consultation incomplete re-checks the slot
 -- ---------------------------------------------------------------------------
-select lives_ok(
-  $$ insert into public.consultations (id, user_id, first_name, last_name, reason, scheduled_at)
-     values ('c0000000-0000-4000-8000-000000000005', '22222222-2222-4222-8222-222222222222',
-             'Alice', 'Chen', 'Completed early', date_trunc('hour', now()) + interval '50 days');
-     update public.consultations set status = 'completed'
-     where id = 'c0000000-0000-4000-8000-000000000005' $$,
-  'setup: book and complete a consultation'
-);
-
-select lives_ok(
-  $$ insert into public.consultations (user_id, first_name, last_name, reason, scheduled_at)
-     values ('22222222-2222-4222-8222-222222222222', 'Alice', 'Chen', 'Overlaps completed',
-             date_trunc('hour', now()) + interval '50 days 30 minutes') $$,
-  'a completed consultation does not block an overlapping booking'
-);
-
 select throws_ok(
   $$ update public.consultations set status = 'scheduled'
      where id = 'c0000000-0000-4000-8000-000000000005' $$,
   '23P01', null,
   'marking incomplete is rejected when it would overlap an active consultation'
+);
+
+-- ---------------------------------------------------------------------------
+-- 8. Booking horizon (90 days) and 15-minute slot grid
+-- ---------------------------------------------------------------------------
+select throws_ok(
+  $$ insert into public.consultations (user_id, first_name, last_name, reason, scheduled_at)
+     values ('22222222-2222-4222-8222-222222222222', 'Alice', 'Chen', 'Too far ahead',
+             date_trunc('hour', now()) + interval '91 days') $$,
+  '22023', null,
+  'booking beyond 90 days is rejected'
+);
+
+select lives_ok(
+  $$ insert into public.consultations (user_id, first_name, last_name, reason, scheduled_at)
+     values ('22222222-2222-4222-8222-222222222222', 'Alice', 'Chen', 'Within horizon',
+             date_trunc('hour', now()) + interval '89 days') $$,
+  'booking within 90 days is allowed'
+);
+
+select throws_ok(
+  $$ insert into public.consultations (user_id, first_name, last_name, reason, scheduled_at)
+     values ('22222222-2222-4222-8222-222222222222', 'Alice', 'Chen', 'Off grid',
+             date_trunc('hour', now()) + interval '35 days 7 minutes') $$,
+  '22023', null,
+  'booking at :07 (off the 15-minute grid) is rejected'
+);
+
+select throws_ok(
+  $$ insert into public.consultations (user_id, first_name, last_name, reason, scheduled_at)
+     values ('22222222-2222-4222-8222-222222222222', 'Alice', 'Chen', 'With seconds',
+             date_trunc('hour', now()) + interval '35 days 15 minutes 30 seconds') $$,
+  '22023', null,
+  'booking with non-zero seconds is rejected'
+);
+
+select throws_ok(
+  $$ update public.consultations
+     set scheduled_at = date_trunc('hour', now()) + interval '45 days 10 minutes'
+     where id = 'c0000000-0000-4000-8000-000000000004' $$,
+  '22023', null,
+  'rescheduling off the 15-minute grid is rejected'
+);
+
+select lives_ok(
+  $$ update public.consultations
+     set scheduled_at = date_trunc('hour', now()) + interval '46 days 45 minutes'
+     where id = 'c0000000-0000-4000-8000-000000000004' $$,
+  'rescheduling onto the 15-minute grid is allowed'
+);
+
+-- ---------------------------------------------------------------------------
+-- 9. A consultation can be marked complete only after it has started
+-- ---------------------------------------------------------------------------
+select lives_ok(
+  $$ insert into public.consultations (id, user_id, first_name, last_name, reason, scheduled_at)
+     values ('c0000000-0000-4000-8000-000000000007', '22222222-2222-4222-8222-222222222222',
+             'Alice', 'Chen', 'Not started', date_trunc('hour', now()) + interval '60 days') $$,
+  'setup: book a future consultation'
+);
+
+select throws_ok(
+  $$ update public.consultations set status = 'completed'
+     where id = 'c0000000-0000-4000-8000-000000000007' $$,
+  '22023', null,
+  'completing a consultation before it starts is rejected'
+);
+
+select lives_ok(
+  $$ update public.consultations set status = 'completed'
+     where id = 'c0000000-0000-4000-8000-000000000008' $$,
+  'completing a consultation after it started is allowed'
 );
 
 select * from finish();

@@ -14,7 +14,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { MIN_CONSULTATION_GAP_MINUTES } from "@/lib/domain/consultation-constants";
-import { readApiErrorMessage, toDateTimeLocalValue } from "@/lib/format";
+import {
+  getBookingInputBounds,
+  readApiErrorMessage,
+  toDateTimeLocalValue,
+} from "@/lib/format";
 import type { Consultation } from "@/lib/types/database";
 
 interface RescheduleConsultationDialogProps {
@@ -127,7 +131,7 @@ function RescheduleConsultationForm({
           id="reschedule-datetime"
           type="datetime-local"
           value={scheduledAt}
-          min={toDateTimeLocalValue(new Date())}
+          {...getBookingInputBounds()}
           onChange={(e) => setScheduledAt(e.target.value)}
           required
         />

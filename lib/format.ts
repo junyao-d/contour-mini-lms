@@ -1,3 +1,8 @@
+import {
+  MAX_BOOKING_HORIZON_DAYS,
+  SLOT_GRANULARITY_MINUTES,
+} from "@/lib/domain/consultation-constants";
+
 /**
  * Formats an ISO timestamp in the user's local timezone.
  */
@@ -31,6 +36,25 @@ export function getDefaultBookingDateTime(): string {
   date.setMinutes(0, 0, 0);
   date.setHours(date.getHours() + 1);
   return toDateTimeLocalValue(date);
+}
+
+/**
+ * `min`/`max`/`step` for booking `<input type="datetime-local">` fields.
+ * `min` is rounded up to the slot grid because browsers validate `step` relative to `min`.
+ */
+export function getBookingInputBounds() {
+  const slotMs = SLOT_GRANULARITY_MINUTES * 60 * 1000;
+  const now = Date.now();
+  const min = Math.ceil(now / slotMs) * slotMs;
+  const max =
+    Math.floor((now + MAX_BOOKING_HORIZON_DAYS * 24 * 60 * 60 * 1000) / slotMs) *
+    slotMs;
+
+  return {
+    min: toDateTimeLocalValue(new Date(min)),
+    max: toDateTimeLocalValue(new Date(max)),
+    step: SLOT_GRANULARITY_MINUTES * 60,
+  };
 }
 
 /**

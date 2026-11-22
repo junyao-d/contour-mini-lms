@@ -4,11 +4,12 @@ import { buildConsultationUpdate } from "@/lib/domain/consultation-transitions";
 const NOW = new Date("2026-11-22T10:00:00.000Z");
 const SLOT_A = "2026-11-25T10:00:00.000Z";
 const SLOT_B = "2026-11-26T14:00:00.000Z";
+const PAST_SLOT = "2026-11-21T10:00:00.000Z";
 
 describe("buildConsultationUpdate state machine", () => {
-  it("transitions scheduled -> completed with completed_at", () => {
+  it("transitions scheduled -> completed with completed_at once started", () => {
     const result = buildConsultationUpdate(
-      { status: "scheduled", scheduled_at: SLOT_A },
+      { status: "scheduled", scheduled_at: PAST_SLOT },
       { action: "toggle_complete", completed: true },
       NOW,
     );
@@ -17,6 +18,16 @@ describe("buildConsultationUpdate state machine", () => {
       ok: true,
       patch: { status: "completed", completed_at: NOW.toISOString() },
     });
+  });
+
+  it("rejects completing a consultation that has not started yet", () => {
+    const result = buildConsultationUpdate(
+      { status: "scheduled", scheduled_at: SLOT_A },
+      { action: "toggle_complete", completed: true },
+      NOW,
+    );
+
+    expect(result.ok).toBe(false);
   });
 
   it("transitions completed -> scheduled (mark incomplete) clearing completed_at", () => {

@@ -139,7 +139,11 @@ describe("API Route Handler RBAC & concurrency behavior", () => {
       first_name: "Alice",
       last_name: "Chen",
       reason: "Exam prep",
-      scheduled_at: new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString(),
+      // Next 15-minute boundary at least 3 hours ahead
+      scheduled_at: new Date(
+        Math.ceil((Date.now() + 3 * 60 * 60 * 1000) / (15 * 60 * 1000)) *
+          (15 * 60 * 1000),
+      ).toISOString(),
       status: "scheduled",
     };
 

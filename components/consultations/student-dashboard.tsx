@@ -19,6 +19,7 @@ import { RescheduleConsultationDialog } from "@/components/consultations/resched
 import { StatusBadge } from "@/components/consultations/status-badge";
 import { SummaryCards } from "@/components/consultations/summary-cards";
 import { useConsultationList } from "@/hooks/use-consultation-list";
+import { hasStarted } from "@/lib/domain/consultation-transitions";
 import { formatDateTime, readApiErrorMessage } from "@/lib/format";
 import type { Consultation } from "@/lib/types/database";
 import type {
@@ -197,6 +198,8 @@ export function StudentDashboard({
             const isCompleted = item.status === "completed";
             const isCancelled = item.status === "cancelled";
             const isBusy = togglingId === item.id;
+            const notStartedYet =
+              isScheduled && !hasStarted(item.scheduled_at);
 
             return (
               <Card
@@ -215,7 +218,7 @@ export function StudentDashboard({
                       >
                         {item.first_name} {item.last_name}
                       </span>
-                      <StatusBadge status={item.status} />
+                      <StatusBadge status={item.status} scheduledAt={item.scheduled_at} />
                     </div>
 
                     <p className="text-sm text-foreground/90">{item.reason}</p>
@@ -248,7 +251,12 @@ export function StudentDashboard({
                       <Button
                         variant={isCompleted ? "outline" : "secondary"}
                         size="sm"
-                        disabled={isBusy}
+                        disabled={isBusy || notStartedYet}
+                        title={
+                          notStartedYet
+                            ? "Available once the consultation has started"
+                            : undefined
+                        }
                         onClick={() =>
                           void handleToggleComplete(item, !isCompleted)
                         }
@@ -285,6 +293,12 @@ export function StudentDashboard({
                             Cancel
                           </Button>
                         </>
+                      )}
+
+                      {notStartedYet && (
+                        <span className="basis-full text-xs text-muted-foreground">
+                          Can be marked complete once it starts.
+                        </span>
                       )}
                     </div>
                   )}

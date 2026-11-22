@@ -1,4 +1,8 @@
 import { z } from "zod";
+import {
+  MAX_BOOKING_HORIZON_DAYS,
+  SLOT_GRANULARITY_MINUTES,
+} from "@/lib/domain/consultation-constants";
 
 const trimmedNameSchema = (label: string) =>
   z
@@ -13,6 +17,9 @@ const reasonSchema = z
   .min(1, "Reason for consultation is required")
   .max(1000, "Reason must be at most 1000 characters");
 
+const SLOT_MS = SLOT_GRANULARITY_MINUTES * 60 * 1000;
+const HORIZON_MS = MAX_BOOKING_HORIZON_DAYS * 24 * 60 * 60 * 1000;
+
 const futureIsoDatetimeSchema = z.iso
   .datetime({
     offset: true,
@@ -20,6 +27,13 @@ const futureIsoDatetimeSchema = z.iso
   })
   .refine((value) => new Date(value).getTime() > Date.now(), {
     message: "Consultation datetime must be in the future",
+  })
+  .refine((value) => new Date(value).getTime() <= Date.now() + HORIZON_MS, {
+    message: `Consultations can be booked at most ${MAX_BOOKING_HORIZON_DAYS} days ahead`,
+  })
+  // Epoch-based check is timezone-safe: every real UTC offset is a multiple of 15 minutes.
+  .refine((value) => new Date(value).getTime() % SLOT_MS === 0, {
+    message: `Consultation time must start on a ${SLOT_GRANULARITY_MINUTES}-minute boundary (e.g. 10:00, 10:15)`,
   });
 
 export const uuidParamSchema = z.uuid("Invalid consultation ID");

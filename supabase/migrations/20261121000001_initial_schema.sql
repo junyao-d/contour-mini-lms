@@ -177,6 +177,35 @@ create table public.consultations (
     where (status = 'scheduled')
 );
 
+-- Validates a requested consultation start time (new bookings and reschedules).
+-- Numbers must stay in sync with lib/domain/consultation-constants.ts:
+--   90 days  = MAX_BOOKING_HORIZON_DAYS
+--   900 sec  = SLOT_GRANULARITY_MINUTES (15) * 60
+create or replace function public.assert_valid_consultation_time(p_scheduled_at timestamptz)
+returns void
+language plpgsql
+stable
+set search_path = ''
+as $$
+begin
+  if p_scheduled_at <= now() then
+    raise exception 'Consultation datetime must be in the future'
+      using errcode = '22023';
+  end if;
+
+  if p_scheduled_at > now() + interval '90 days' then
+    raise exception 'Consultation datetime must be within 90 days'
+      using errcode = '22023';
+  end if;
+
+  -- Epoch-based so it is timezone independent (all UTC offsets are multiples of 15 minutes)
+  if extract(epoch from p_scheduled_at) % 900 <> 0 then
+    raise exception 'Consultation datetime must start on a 15-minute boundary'
+      using errcode = '22023';
+  end if;
+end;
+$$;
+
 -- Defense-in-depth trigger enforcing consultation business rules and immutable
 -- audit columns at the database layer (blocks direct PostgREST bypasses).
 create or replace function public.guard_consultation_write()
@@ -195,10 +224,7 @@ begin
   end if;
 
   if tg_op = 'INSERT' then
-    if new.scheduled_at <= now() then
-      raise exception 'Consultation datetime must be in the future'
-        using errcode = '22023';
-    end if;
+    perform public.assert_valid_consultation_time(new.scheduled_at);
 
     -- Lock attendee names to the caller's profile whenever stored on public.profiles
     select first_name, last_name
@@ -273,6 +299,10 @@ begin
       raise exception 'Cannot reschedule or edit a consultation while completing'
         using errcode = '22023';
     end if;
+    if old.scheduled_at > now() then
+      raise exception 'Consultation has not started yet and cannot be completed'
+        using errcode = '22023';
+    end if;
     new.completed_at := now();
     new.cancelled_at := null;
     new.rescheduled_at := old.rescheduled_at;
@@ -283,10 +313,7 @@ begin
   new.completed_at := null;
   new.cancelled_at := null;
   if new.scheduled_at is distinct from old.scheduled_at then
-    if new.scheduled_at <= now() then
-      raise exception 'Consultation datetime must be in the future'
-        using errcode = '22023';
-    end if;
+    perform public.assert_valid_consultation_time(new.scheduled_at);
     new.rescheduled_at := now();
   else
     new.rescheduled_at := old.rescheduled_at;

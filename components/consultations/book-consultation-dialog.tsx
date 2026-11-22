@@ -15,9 +15,9 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { MIN_CONSULTATION_GAP_MINUTES } from "@/lib/domain/consultation-constants";
 import {
+  getBookingInputBounds,
   getDefaultBookingDateTime,
   readApiErrorMessage,
-  toDateTimeLocalValue,
 } from "@/lib/format";
 
 interface BookConsultationDialogProps {
@@ -167,7 +167,7 @@ function BookConsultationForm({
           id="book-datetime"
           type="datetime-local"
           value={scheduledAt}
-          min={toDateTimeLocalValue(new Date())}
+          {...getBookingInputBounds()}
           onChange={(e) => setScheduledAt(e.target.value)}
           required
         />

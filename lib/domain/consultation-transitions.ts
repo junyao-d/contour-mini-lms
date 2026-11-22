@@ -8,6 +8,11 @@ export type TransitionResult =
   | { ok: true; patch: ConsultationPatch }
   | { ok: false; message: string };
 
+/** A consultation can be marked complete only once its start time has passed. */
+export function hasStarted(scheduledAt: string, now: Date = new Date()): boolean {
+  return new Date(scheduledAt).getTime() <= now.getTime();
+}
+
 export function buildConsultationUpdate(
   current: Pick<Consultation, "status" | "scheduled_at">,
   input: UpdateConsultationInput,
@@ -37,6 +42,13 @@ export function buildConsultationUpdate(
       if (input.completed) {
         if (current.status === "completed") {
           return { ok: true, patch: {} };
+        }
+        if (!hasStarted(current.scheduled_at, now)) {
+          return {
+            ok: false,
+            message:
+              "This consultation hasn't started yet, so it can't be marked complete.",
+          };
         }
         return {
           ok: true,

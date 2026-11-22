@@ -1,4 +1,5 @@
 import { Badge } from "@/components/ui/badge";
+import { hasStarted } from "@/lib/domain/consultation-transitions";
 import type { ConsultationStatus } from "@/lib/types/database";
 import { cn } from "@/lib/utils";
 
@@ -23,11 +24,30 @@ const STATUS_STYLES: Record<
   },
 };
 
-export function StatusBadge({ status }: { status: ConsultationStatus }) {
+export function StatusBadge({
+  status,
+  scheduledAt,
+}: {
+  status: ConsultationStatus;
+  scheduledAt: string;
+}) {
   const config = STATUS_STYLES[status];
+  // Display-only: a scheduled consultation whose start time has passed.
+  const isPastDue = status === "scheduled" && hasStarted(scheduledAt);
+
   return (
-    <Badge variant="outline" className={cn("font-medium", config.className)}>
-      {config.label}
-    </Badge>
+    <>
+      <Badge variant="outline" className={cn("font-medium", config.className)}>
+        {config.label}
+      </Badge>
+      {isPastDue && (
+        <Badge
+          variant="outline"
+          className="border-amber-200 bg-amber-50 font-medium text-amber-700 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300"
+        >
+          Past due
+        </Badge>
+      )}
+    </>
   );
 }

@@ -6,7 +6,12 @@ import {
   uuidParamSchema,
 } from "@/lib/validators/consultation";
 
-const futureIso = () => new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString();
+const SLOT_MS = 15 * 60 * 1000;
+// Next 15-minute boundary at least 2 hours ahead
+const futureIso = () =>
+  new Date(
+    Math.ceil((Date.now() + 2 * 60 * 60 * 1000) / SLOT_MS) * SLOT_MS,
+  ).toISOString();
 const pastIso = () => new Date(Date.now() - 60 * 60 * 1000).toISOString();
 
 describe("consultation validators", () => {
@@ -41,6 +46,43 @@ describe("consultation validators", () => {
         scheduled_at: futureIso(),
       }).success,
     ).toBe(false);
+  });
+
+  it("rejects bookings beyond the 90-day horizon or off the 15-minute grid", () => {
+    const base = {
+      first_name: "Alice",
+      last_name: "Chen",
+      reason: "Homework help",
+    };
+    const aligned = new Date(futureIso());
+
+    expect(
+      createConsultationSchema.safeParse({
+        ...base,
+        scheduled_at: "2099-01-01T10:00:00.000Z",
+      }).success,
+    ).toBe(false);
+
+    const offGrid = new Date(aligned.getTime() + 7 * 60 * 1000); // e.g. 03:07
+    expect(
+      createConsultationSchema.safeParse({
+        ...base,
+        scheduled_at: offGrid.toISOString(),
+      }).success,
+    ).toBe(false);
+
+    const withSeconds = new Date(aligned.getTime() + 30 * 1000);
+    expect(
+      createConsultationSchema.safeParse({
+        ...base,
+        scheduled_at: withSeconds.toISOString(),
+      }).success,
+    ).toBe(false);
+
+    expect(
+      createConsultationSchema.safeParse({ ...base, scheduled_at: futureIso() })
+        .success,
+    ).toBe(true);
   });
 
   it("validates discriminated PATCH actions cleanly", () => {

@@ -113,7 +113,7 @@ where email = 'your-admin@example.com';
 1. **Student Flow** (log in as `alice@contour-lms.local` or sign up as a new student):
    - Book a future consultation (verify First & Last Name are prefilled from profile).
    - Attempt to book another consultation within 60 minutes of an active one → verify `409` conflict message.
-   - Click **Mark Complete** / **Mark Incomplete** → verify status badge and KPI counts update.
+   - On an upcoming consultation, verify **Mark Complete** is disabled until it starts; on a past one (e.g. a seeded completed consultation), click **Mark Incomplete** / **Mark Complete** → verify status badge and KPI counts update.
    - **Reschedule** an upcoming consultation → verify new time and `Rescheduled ...` audit timestamp appear.
    - **Cancel** an upcoming consultation → confirm modal, verify status turns `Cancelled` and edit/complete controls lock.
    - Visit `/admin` directly → verify `403 Access Denied` screen.
@@ -133,9 +133,10 @@ where email = 'your-admin@example.com';
 2. **Each active consultation reserves a fixed 60-minute window per student (`[scheduled_at, scheduled_at + 60m)`), without modeling tutors or rooms.**
    - **Why for this assessment:** The prompt requires only attendee name, reason, and datetime; a fixed 60-minute PostgreSQL GiST exclusion constraint cleanly demonstrates race-condition-free overlap prevention without over-modeling unrequested entities.
    - **In a production LMS:** Model tutors, rooms/video links, working-hour availability blocks, configurable session durations (e.g., 30/45/60 min), and buffer times with exclusion constraints enforced per tutor as well as per student.
-3. **New bookings and reschedules require a future datetime (`scheduled_at > now()`), while any non-cancelled consultation can be toggled between complete and incomplete.**
-   - **Why for this assessment:** Prevents nonsensical past bookings while ensuring reviewers can immediately test the required Complete/Incomplete toggle on newly booked upcoming consultations (and lets students mark resolved questions early).
-   - **In a production LMS:** Gate completion until after `scheduled_at` (or require tutor attendance sign-off), enforce a cutoff window for late reschedules/cancellations (e.g., at least 2 hours before start), and automatically mark unattended past sessions as `no_show`.
+3. **Bookings and reschedules must be in the future, within 90 days, and start on a 15-minute boundary (seconds = 0). A consultation can be marked complete only after its start time.**
+   - **Why these numbers:** 90 days roughly covers one academic term, which is as far ahead as students realistically plan, and it stops placeholder bookings years out. A 15-minute grid matches how tutoring sessions are usually scheduled and keeps times readable. Completion is gated on the start time because a session cannot have happened before it begins. A scheduled consultation whose time has passed is shown as "Past due" (derived in the UI, not a stored status).
+   - **Where:** constants in `lib/domain/consultation-constants.ts`, checked by Zod and by `guard_consultation_write` in the migration (the SQL repeats the numbers with a sync comment).
+   - **In a production LMS:** Require tutor attendance sign-off for completion, enforce a cutoff for late reschedules/cancellations (e.g. 2 hours before start), and mark unattended past sessions as `no_show`.
 4. **Completed consultations cannot be cancelled directly (must be marked incomplete first), and cancelled consultations are soft-cancelled and immutable.**
    - **Why for this assessment:** Prevents contradictory states (both completed and cancelled) and preserves full audit visibility for both students and the Admin view without needing a separate audit-log table.
    - **In a production LMS:** Append every booking, reschedule, completion, and cancellation to an immutable `consultation_events` audit log table (preserving previous datetimes, actor IDs, and cancellation reasons) with configurable retention/re-booking workflows.

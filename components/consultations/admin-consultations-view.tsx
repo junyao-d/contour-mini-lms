@@ -171,7 +171,7 @@ export function AdminConsultationsView() {
                   </td>
 
                   <td className="whitespace-nowrap px-4 py-3 align-top">
-                    <StatusBadge status={item.status} />
+                    <StatusBadge status={item.status} scheduledAt={item.scheduled_at} />
                     {item.completed_at && (
                       <div className="mt-1 text-xs text-muted-foreground">
                         {formatDateTime(item.completed_at)}

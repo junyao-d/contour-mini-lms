@@ -15,7 +15,7 @@
 
 ### Prerequisites
 - **Node.js** v20+ and **npm**
-- **Docker Desktop** *(required only for Option A — Local Supabase)*
+- **Docker Desktop** *(Local Supabase)*
 
 ### Step 1:  Install Dependencies
 ```bash
@@ -197,7 +197,7 @@ flowchart LR
 - `supabase/migrations/20261121000001_initial_schema.sql` & `supabase/seed.sql` — schema, triggers, constraints, indexes, RLS, and local seed data.
 - `lib/types/database.ts` — end-to-end TypeScript types wired into both server and browser Supabase clients.
 - `lib/validators/consultation.ts` — Zod v4 schemas for request payloads, UUID params, and list query parameters.
-- `lib/domain/consultation-transitions.ts` — framework-free state machine enforcing consultation lifecycle rules.
+- `lib/domain/` — framework-free consultation rules: `consultation-transitions.ts` (lifecycle state machine) and `consultation-constants.ts` (centralized `MIN_CONSULTATION_GAP_MINUTES`).
 - `lib/api/` — shared API infrastructure: `auth.ts` (`requireAuth`, `requireStudent`, `requireAdmin`), `request.ts` (`parseJsonBody` with `Origin` + `Content-Type` validation), `response.ts` (standard JSON envelopes & error mapping), `consultations-query.ts` (pagination, safe search, summary counts), `redirect.ts` (open-redirect prevention).
 - `app/api/**` — REST Route Handlers (`/api/me`, `/api/consultations`, `/api/consultations/[id]`, `/api/admin/consultations`).
 - `app/(app)/` & `components/consultations/` — role-aware app shell, Student Dashboard, consultation dialogs, and read-only Admin Console.

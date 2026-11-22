@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getSafeRedirectPath } from "@/lib/api/redirect";
 import { parseJsonBody } from "@/lib/api/request";
 import { ApiError, handleApiError } from "@/lib/api/response";
+import { MIN_CONSULTATION_GAP_MINUTES } from "@/lib/domain/consultation-constants";
 
 const mockRequireAuth = vi.fn();
 const mockRequireStudent = vi.fn();
@@ -75,7 +76,9 @@ describe("redirect & request security helpers", () => {
     expect(response.status).toBe(409);
     const json = await response.json();
     expect(json.error.code).toBe("TIME_SLOT_CONFLICT");
-    expect(json.error.message).toContain("60 minutes");
+    expect(json.error.message).toContain(
+      `${MIN_CONSULTATION_GAP_MINUTES} minutes`,
+    );
   });
 });
 

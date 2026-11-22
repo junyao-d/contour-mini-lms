@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { ZodError } from "zod";
+import { MIN_CONSULTATION_GAP_MINUTES } from "@/lib/domain/consultation-constants";
 
 export class ApiError extends Error {
   constructor(
@@ -79,8 +80,7 @@ export function handleApiError(error: unknown) {
       {
         error: {
           code: "TIME_SLOT_CONFLICT",
-          message:
-            "You already have a scheduled consultation within 1 hour of this time.",
+          message: `You already have a scheduled consultation within ${MIN_CONSULTATION_GAP_MINUTES} minutes of this time.`,
         },
       },
       { status: 409 },

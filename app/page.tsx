@@ -7,6 +7,7 @@ import {
   GraduationCap,
   ShieldCheck,
 } from "lucide-react";
+import { MIN_CONSULTATION_GAP_MINUTES } from "@/lib/domain/consultation-constants";
 import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -82,7 +83,8 @@ export default function HomePage() {
             </CardHeader>
             <CardContent className="text-sm text-muted-foreground">
               Schedule consultations in seconds with automatic profile prefill
-              and conflict-free 60-minute time windows.
+              and conflict-free {MIN_CONSULTATION_GAP_MINUTES}-minute time
+              windows.
             </CardContent>
           </Card>
 

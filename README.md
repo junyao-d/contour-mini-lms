@@ -72,6 +72,7 @@ The Supabase CLI is pinned as a `devDependency` in `package.json`, so no global 
 | `npm run lint` | Run ESLint across the repository |
 | `npm test` | Run automated Vitest unit & API security/RBAC test suites |
 | `npm run test:watch` | Run Vitest in watch mode |
+| `npm run test:db` | Run pgTAP database tests in `supabase/tests/` (exclusion constraint, guard trigger, RLS/RBAC); requires local Supabase running |
 | `npm run db:start` | Start local Supabase Docker stack |
 | `npm run db:stop` | Stop local Supabase Docker stack |
 | `npm run db:status` | Print local Supabase URLs and API keys |
@@ -86,6 +87,7 @@ The Supabase CLI is pinned as a `devDependency` in `package.json`, so no global 
 npm run typecheck
 npm run lint
 npm test
+npm run test:db   # requires `npm run db:start`; each test file runs in a rolled-back transaction
 npm run build
 ```
 

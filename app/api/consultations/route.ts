@@ -24,7 +24,11 @@ export async function GET(request: NextRequest) {
       .select("*", { count: "exact" })
       .eq("user_id", user.id);
 
-    if (status !== "all") {
+    if (status === "upcoming") {
+      query = query
+        .eq("status", "scheduled")
+        .gt("scheduled_at", new Date().toISOString());
+    } else if (status !== "all") {
       query = query.eq("status", status);
     }
 

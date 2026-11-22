@@ -5,15 +5,28 @@ import {
 
 /**
  * Formats an ISO timestamp in the user's local timezone.
+ * `withWeekday` adds the short weekday, e.g. "Sun, 22 Nov 2026, 6:45 pm".
  */
-export function formatDateTime(isoString: string): string {
+export function formatDateTime(
+  isoString: string,
+  { withWeekday = false }: { withWeekday?: boolean } = {},
+): string {
   const date = new Date(isoString);
   if (Number.isNaN(date.getTime())) return isoString;
 
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(date);
+  // dateStyle cannot be combined with weekday, so spell the parts out instead.
+  const options: Intl.DateTimeFormatOptions = withWeekday
+    ? {
+        weekday: "short",
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+      }
+    : { dateStyle: "medium", timeStyle: "short" };
+
+  return new Intl.DateTimeFormat(undefined, options).format(date);
 }
 
 /**

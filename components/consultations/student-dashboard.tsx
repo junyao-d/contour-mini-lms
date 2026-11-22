@@ -1,9 +1,23 @@
 "use client";
 
 import { useState } from "react";
-import { CalendarClock, CheckCircle2, Plus, RotateCcw, Search, XCircle } from "lucide-react";
+import {
+  CalendarClock,
+  CheckCircle2,
+  MoreHorizontal,
+  Plus,
+  RotateCcw,
+  Search,
+  XCircle,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -105,7 +119,7 @@ export function StudentDashboard({
             My Consultations
           </h1>
           <p className="text-sm text-muted-foreground">
-            Book, reschedule, cancel, or mark your consultations as completed.
+            Book, reschedule, or cancel consultations, and mark them as done once they have taken place.
           </p>
         </div>
         <Button onClick={() => setBookOpen(true)}>
@@ -123,6 +137,7 @@ export function StudentDashboard({
         >
           <TabsList>
             <TabsTrigger value="all">All</TabsTrigger>
+            <TabsTrigger value="upcoming">Upcoming</TabsTrigger>
             <TabsTrigger value="scheduled">Scheduled</TabsTrigger>
             <TabsTrigger value="completed">Completed</TabsTrigger>
             <TabsTrigger value="cancelled">Cancelled</TabsTrigger>
@@ -204,103 +219,104 @@ export function StudentDashboard({
             return (
               <Card
                 key={item.id}
-                className={isCancelled ? "opacity-75" : undefined}
+                className={
+                  isCancelled ? "opacity-75" : isCompleted ? "opacity-90" : undefined
+                }
               >
                 <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-start sm:justify-between">
                   <div className="space-y-2">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span
-                        className={`font-semibold ${
-                          isCompleted
-                            ? "line-through text-muted-foreground"
-                            : ""
-                        }`}
-                      >
-                        {item.first_name} {item.last_name}
+                      <span className="inline-flex items-center gap-1.5 font-semibold">
+                        <CalendarClock className="h-4 w-4 text-muted-foreground" />
+                        {formatDateTime(item.scheduled_at, { withWeekday: true })}
                       </span>
                       <StatusBadge status={item.status} scheduledAt={item.scheduled_at} />
                     </div>
 
                     <p className="text-sm text-foreground/90">{item.reason}</p>
 
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                      <span className="inline-flex items-center gap-1">
-                        <CalendarClock className="h-3.5 w-3.5" />
-                        {formatDateTime(item.scheduled_at)}
-                      </span>
-                      {item.rescheduled_at && (
-                        <span>
-                          Rescheduled {formatDateTime(item.rescheduled_at)}
-                        </span>
-                      )}
-                      {item.completed_at && (
-                        <span>
-                          Completed {formatDateTime(item.completed_at)}
-                        </span>
-                      )}
-                      {item.cancelled_at && (
-                        <span>
-                          Cancelled {formatDateTime(item.cancelled_at)}
-                        </span>
-                      )}
-                    </div>
+                    {(item.rescheduled_at || item.completed_at || item.cancelled_at) && (
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                        {item.rescheduled_at && (
+                          <span>
+                            Rescheduled {formatDateTime(item.rescheduled_at)}
+                          </span>
+                        )}
+                        {item.completed_at && (
+                          <span>Done {formatDateTime(item.completed_at)}</span>
+                        )}
+                        {item.cancelled_at && (
+                          <span>
+                            Cancelled {formatDateTime(item.cancelled_at)}
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
 
-                  {!isCancelled && (
+                  {isScheduled && (
                     <div className="flex shrink-0 flex-wrap items-center gap-2">
                       <Button
-                        variant={isCompleted ? "outline" : "secondary"}
+                        variant="secondary"
                         size="sm"
                         disabled={isBusy || notStartedYet}
                         title={
                           notStartedYet
-                            ? "Available once the consultation has started"
+                            ? "Available after the session starts"
                             : undefined
                         }
-                        onClick={() =>
-                          void handleToggleComplete(item, !isCompleted)
-                        }
+                        onClick={() => void handleToggleComplete(item, true)}
                       >
-                        {isCompleted ? (
-                          <>
-                            <RotateCcw className="mr-1 h-4 w-4" />
-                            Mark Incomplete
-                          </>
-                        ) : (
-                          <>
-                            <CheckCircle2 className="mr-1 h-4 w-4" />
-                            Mark Complete
-                          </>
-                        )}
+                        <CheckCircle2 className="mr-1 h-4 w-4" />
+                        Mark as done
                       </Button>
-
-                      {isScheduled && (
-                        <>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setRescheduleTarget(item)}
-                          >
-                            Reschedule
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-destructive hover:text-destructive"
-                            onClick={() => setCancelTarget(item)}
-                          >
-                            <XCircle className="mr-1 h-4 w-4" />
-                            Cancel
-                          </Button>
-                        </>
-                      )}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setRescheduleTarget(item)}
+                      >
+                        Reschedule
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-destructive hover:text-destructive"
+                        onClick={() => setCancelTarget(item)}
+                      >
+                        <XCircle className="mr-1 h-4 w-4" />
+                        Cancel
+                      </Button>
 
                       {notStartedYet && (
                         <span className="basis-full text-xs text-muted-foreground">
-                          Can be marked complete once it starts.
+                          Available after the session starts.
                         </span>
                       )}
                     </div>
+                  )}
+
+                  {isCompleted && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="shrink-0 self-start"
+                          disabled={isBusy}
+                          aria-label="More actions"
+                        >
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem
+                          onSelect={() => void handleToggleComplete(item, false)}
+                        >
+                          <RotateCcw className="mr-2 h-4 w-4" />
+                          Mark as not done
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   )}
                 </CardContent>
               </Card>

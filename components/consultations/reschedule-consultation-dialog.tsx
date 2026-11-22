@@ -10,14 +10,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  getBookingInputBounds,
-  readApiErrorMessage,
-  toDateTimeLocalValue,
-} from "@/lib/format";
+  SessionTimePicker,
+  validateSessionTime,
+  type SessionTimeValue,
+} from "@/components/consultations/session-time-picker";
+import type { SessionDuration } from "@/lib/domain/consultation-constants";
+import { readApiErrorMessage } from "@/lib/format";
 import type { Consultation } from "@/lib/types/database";
 
 interface RescheduleConsultationDialogProps {
@@ -33,13 +34,12 @@ export function RescheduleConsultationDialog({
 }: RescheduleConsultationDialogProps) {
   return (
     <Dialog open={Boolean(consultation)} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>Reschedule Consultation</DialogTitle>
           <DialogDescription>
-            Choose a new upcoming date and time or update your consultation
-            reason. Sessions can&apos;t overlap with your other upcoming
-            sessions.
+            Change the length, day or time, or update the reason. Sessions
+            can&apos;t overlap with your other upcoming sessions.
           </DialogDescription>
         </DialogHeader>
 
@@ -71,10 +71,14 @@ function RescheduleConsultationForm({
   onCancel,
   onRescheduled,
 }: RescheduleConsultationFormProps) {
-  const [scheduledAt, setScheduledAt] = useState(() =>
-    toDateTimeLocalValue(consultation.scheduled_at),
-  );
+  const [time, setTime] = useState<SessionTimeValue>(() => ({
+    // Normalise to toISOString() so it matches the picker's slot keys.
+    start: new Date(consultation.scheduled_at).toISOString(),
+    duration: consultation.duration_minutes as SessionDuration,
+  }));
   const [reason, setReason] = useState(consultation.reason);
+  const [timeError, setTimeError] = useState<string | null>(null);
+  const [reasonError, setReasonError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -82,15 +86,13 @@ function RescheduleConsultationForm({
     e.preventDefault();
     setError(null);
 
-    const parsedDate = new Date(scheduledAt);
-    if (Number.isNaN(parsedDate.getTime())) {
-      setError("Please select a valid date and time.");
-      return;
-    }
-    if (parsedDate.getTime() <= Date.now()) {
-      setError("New consultation datetime must be in the future.");
-      return;
-    }
+    const nextTimeError = validateSessionTime(time);
+    const nextReasonError = reason.trim()
+      ? null
+      : "Tell us what you'd like to cover.";
+    setTimeError(nextTimeError);
+    setReasonError(nextReasonError);
+    if (nextTimeError || nextReasonError || !time.start) return;
 
     setIsSubmitting(true);
     try {
@@ -99,7 +101,8 @@ function RescheduleConsultationForm({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "reschedule",
-          scheduled_at: parsedDate.toISOString(),
+          scheduled_at: time.start,
+          duration_minutes: time.duration,
           reason: reason.trim(),
         }),
       });
@@ -123,29 +126,38 @@ function RescheduleConsultationForm({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="grid gap-1.5">
-        <Label htmlFor="reschedule-datetime">New Date &amp; Time</Label>
-        <Input
-          id="reschedule-datetime"
-          type="datetime-local"
-          value={scheduledAt}
-          {...getBookingInputBounds()}
-          onChange={(e) => setScheduledAt(e.target.value)}
-          required
-        />
-      </div>
+    // noValidate: all errors are shown inline in the app's style, not as browser bubbles.
+    <form onSubmit={handleSubmit} noValidate className="space-y-4">
+      <SessionTimePicker
+        value={time}
+        onChange={(next) => {
+          setTime(next);
+          setTimeError(null);
+        }}
+        excludeId={consultation.id}
+        error={timeError}
+        errorId="reschedule-time-error"
+      />
 
       <div className="grid gap-1.5">
         <Label htmlFor="reschedule-reason">Reason for Consultation</Label>
         <Textarea
           id="reschedule-reason"
           value={reason}
-          onChange={(e) => setReason(e.target.value)}
-          required
+          onChange={(e) => {
+            setReason(e.target.value);
+            setReasonError(null);
+          }}
           maxLength={1000}
-          rows={4}
+          rows={3}
+          aria-invalid={reasonError ? true : undefined}
+          aria-describedby={reasonError ? "reschedule-reason-error" : undefined}
         />
+        {reasonError && (
+          <p id="reschedule-reason-error" className="text-sm text-destructive">
+            {reasonError}
+          </p>
+        )}
       </div>
 
       {error && <p className="text-sm text-destructive">{error}</p>}

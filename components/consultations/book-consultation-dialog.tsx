@@ -14,10 +14,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  getBookingInputBounds,
-  getDefaultBookingDateTime,
-  readApiErrorMessage,
-} from "@/lib/format";
+  SessionTimePicker,
+  validateSessionTime,
+  type SessionTimeValue,
+} from "@/components/consultations/session-time-picker";
+import { DEFAULT_SESSION_DURATION_MINUTES } from "@/lib/domain/consultation-constants";
+import { readApiErrorMessage } from "@/lib/format";
 
 interface BookConsultationDialogProps {
   open: boolean;
@@ -36,12 +38,12 @@ export function BookConsultationDialog({
 }: BookConsultationDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>Book a Consultation</DialogTitle>
           <DialogDescription>
-            Schedule an upcoming consultation session. Sessions can&apos;t
-            overlap with your other upcoming sessions.
+            Choose how long you need, then pick a day and time. Sessions
+            can&apos;t overlap with your other upcoming sessions.
           </DialogDescription>
         </DialogHeader>
 
@@ -79,7 +81,12 @@ function BookConsultationForm({
   const [firstName, setFirstName] = useState(profileFirstName ?? "");
   const [lastName, setLastName] = useState(profileLastName ?? "");
   const [reason, setReason] = useState("");
-  const [scheduledAt, setScheduledAt] = useState(getDefaultBookingDateTime);
+  const [time, setTime] = useState<SessionTimeValue>({
+    start: null,
+    duration: DEFAULT_SESSION_DURATION_MINUTES,
+  });
+  const [timeError, setTimeError] = useState<string | null>(null);
+  const [reasonError, setReasonError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -87,15 +94,17 @@ function BookConsultationForm({
     e.preventDefault();
     setError(null);
 
-    const parsedDate = new Date(scheduledAt);
-    if (Number.isNaN(parsedDate.getTime())) {
-      setError("Please select a valid date and time.");
+    const nextTimeError = validateSessionTime(time);
+    const nextReasonError = reason.trim()
+      ? null
+      : "Tell us what you'd like to cover.";
+    setTimeError(nextTimeError);
+    setReasonError(nextReasonError);
+    if (!firstName.trim() || !lastName.trim()) {
+      setError("First and last name are required.");
       return;
     }
-    if (parsedDate.getTime() <= Date.now()) {
-      setError("Consultation datetime must be in the future.");
-      return;
-    }
+    if (nextTimeError || nextReasonError || !time.start) return;
 
     setIsSubmitting(true);
     try {
@@ -106,7 +115,8 @@ function BookConsultationForm({
           first_name: firstName.trim(),
           last_name: lastName.trim(),
           reason: reason.trim(),
-          scheduled_at: parsedDate.toISOString(),
+          scheduled_at: time.start,
+          duration_minutes: time.duration,
         }),
       });
 
@@ -126,7 +136,8 @@ function BookConsultationForm({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    // noValidate: all errors are shown inline in the app's style, not as browser bubbles.
+    <form onSubmit={handleSubmit} noValidate className="space-y-4">
       <div className="grid grid-cols-2 gap-3">
         <div className="grid gap-1.5">
           <Label htmlFor="book-first-name">First Name</Label>
@@ -135,7 +146,6 @@ function BookConsultationForm({
             value={firstName}
             onChange={(e) => setFirstName(e.target.value)}
             readOnly={isFirstNameLocked}
-            required
             maxLength={100}
             className={isFirstNameLocked ? "bg-muted text-muted-foreground" : ""}
           />
@@ -147,7 +157,6 @@ function BookConsultationForm({
             value={lastName}
             onChange={(e) => setLastName(e.target.value)}
             readOnly={isLastNameLocked}
-            required
             maxLength={100}
             className={isLastNameLocked ? "bg-muted text-muted-foreground" : ""}
           />
@@ -160,17 +169,15 @@ function BookConsultationForm({
         </p>
       )}
 
-      <div className="grid gap-1.5">
-        <Label htmlFor="book-datetime">Date &amp; Time</Label>
-        <Input
-          id="book-datetime"
-          type="datetime-local"
-          value={scheduledAt}
-          {...getBookingInputBounds()}
-          onChange={(e) => setScheduledAt(e.target.value)}
-          required
-        />
-      </div>
+      <SessionTimePicker
+        value={time}
+        onChange={(next) => {
+          setTime(next);
+          setTimeError(null);
+        }}
+        error={timeError}
+        errorId="book-time-error"
+      />
 
       <div className="grid gap-1.5">
         <Label htmlFor="book-reason">Reason for Consultation</Label>
@@ -178,11 +185,20 @@ function BookConsultationForm({
           id="book-reason"
           placeholder="Describe the topic, assignment, or questions you want to cover..."
           value={reason}
-          onChange={(e) => setReason(e.target.value)}
-          required
+          onChange={(e) => {
+            setReason(e.target.value);
+            setReasonError(null);
+          }}
           maxLength={1000}
-          rows={4}
+          rows={3}
+          aria-invalid={reasonError ? true : undefined}
+          aria-describedby={reasonError ? "book-reason-error" : undefined}
         />
+        {reasonError && (
+          <p id="book-reason-error" className="text-sm text-destructive">
+            {reasonError}
+          </p>
+        )}
       </div>
 
       {error && <p className="text-sm text-destructive">{error}</p>}

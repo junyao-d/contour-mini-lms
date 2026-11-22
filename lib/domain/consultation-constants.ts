@@ -19,3 +19,10 @@ export const MAX_BOOKING_HORIZON_DAYS = 90;
  * Keep in sync with `guard_consultation_write` (900-second check) in the migration.
  */
 export const SLOT_GRANULARITY_MINUTES = 15;
+
+/**
+ * Hours (viewer's local time) shown in the booking time picker. UI only: there is no
+ * tutor availability model, so the API accepts any aligned time within the horizon.
+ */
+export const PICKER_DAY_START_HOUR = 8;
+export const PICKER_DAY_END_HOUR = 20;

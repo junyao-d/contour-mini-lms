@@ -18,6 +18,8 @@ export function parseListQuery(requestUrl: string): ListConsultationsQuery {
     sort: searchParams.get("sort") ?? undefined,
     page: searchParams.get("page") ?? undefined,
     pageSize: searchParams.get("pageSize") ?? undefined,
+    from: searchParams.get("from") ?? undefined,
+    to: searchParams.get("to") ?? undefined,
   });
 }
 

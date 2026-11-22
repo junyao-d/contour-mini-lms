@@ -1,8 +1,3 @@
-import {
-  MAX_BOOKING_HORIZON_DAYS,
-  SLOT_GRANULARITY_MINUTES,
-} from "@/lib/domain/consultation-constants";
-
 /**
  * Formats an ISO timestamp in the user's local timezone.
  * `withWeekday` adds the short weekday, e.g. "Sun, 22 Nov 2026, 6:45 pm".
@@ -30,44 +25,41 @@ export function formatDateTime(
 }
 
 /**
- * Converts an ISO timestamp (or Date) into the `YYYY-MM-DDTHH:mm` string expected
- * by `<input type="datetime-local">`.
+ * End of a session that starts at `startIso` and lasts `durationMinutes`.
  */
-export function toDateTimeLocalValue(input: string | Date): string {
-  const date = typeof input === "string" ? new Date(input) : input;
-  if (Number.isNaN(date.getTime())) return "";
-
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+export function getSessionEnd(startIso: string, durationMinutes: number): Date {
+  return new Date(new Date(startIso).getTime() + durationMinutes * 60 * 1000);
 }
 
 /**
- * Suggests a default upcoming booking time (next clean hour, at least 1 hour from now).
+ * Formats a session as a time range in the viewer's timezone, e.g.
+ * "Sun, 22 Nov 2026, 6:45 – 7:45 pm". Ranges crossing midnight show both dates.
  */
-export function getDefaultBookingDateTime(): string {
-  const date = new Date(Date.now() + 60 * 60 * 1000);
-  date.setMinutes(0, 0, 0);
-  date.setHours(date.getHours() + 1);
-  return toDateTimeLocalValue(date);
+export function formatSessionRange(
+  startIso: string,
+  durationMinutes: number,
+): string {
+  const start = new Date(startIso);
+  if (Number.isNaN(start.getTime())) return startIso;
+
+  return new Intl.DateTimeFormat(undefined, {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).formatRange(start, getSessionEnd(startIso, durationMinutes));
 }
 
 /**
- * `min`/`max`/`step` for booking `<input type="datetime-local">` fields.
- * `min` is rounded up to the slot grid because browsers validate `step` relative to `min`.
+ * Formats just the time of day, e.g. "6:45 pm".
  */
-export function getBookingInputBounds() {
-  const slotMs = SLOT_GRANULARITY_MINUTES * 60 * 1000;
-  const now = Date.now();
-  const min = Math.ceil(now / slotMs) * slotMs;
-  const max =
-    Math.floor((now + MAX_BOOKING_HORIZON_DAYS * 24 * 60 * 60 * 1000) / slotMs) *
-    slotMs;
-
-  return {
-    min: toDateTimeLocalValue(new Date(min)),
-    max: toDateTimeLocalValue(new Date(max)),
-    step: SLOT_GRANULARITY_MINUTES * 60,
-  };
+export function formatTimeOfDay(date: Date): string {
+  return new Intl.DateTimeFormat(undefined, {
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(date);
 }
 
 /**

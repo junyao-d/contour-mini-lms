@@ -13,7 +13,8 @@ import type { AdminConsultation } from "@/lib/types/database";
 export async function GET(request: NextRequest) {
   try {
     const { supabase } = await requireAdmin();
-    const { status, search, sort, page, pageSize } = parseListQuery(request.url);
+    const { status, search, sort, page, pageSize, from: fromTime, to: toTime } =
+      parseListQuery(request.url);
     const { column, ascending } = getSortConfig(sort);
     const from = (page - 1) * pageSize;
     const to = from + pageSize - 1;
@@ -29,6 +30,9 @@ export async function GET(request: NextRequest) {
     } else if (status !== "all") {
       query = query.eq("status", status);
     }
+
+    if (fromTime) query = query.gte("scheduled_at", fromTime);
+    if (toTime) query = query.lt("scheduled_at", toTime);
 
     const safeSearch = sanitizeSearchTerm(search);
     if (safeSearch) {

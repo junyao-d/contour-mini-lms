@@ -22,7 +22,8 @@ const reasonSchema = z
 const SLOT_MS = SLOT_GRANULARITY_MINUTES * 60 * 1000;
 const HORIZON_MS = MAX_BOOKING_HORIZON_DAYS * 24 * 60 * 60 * 1000;
 
-const futureIsoDatetimeSchema = z.iso
+/** Start-time rules shared by the API and the booking dialogs (client-side pre-check). */
+export const consultationStartSchema = z.iso
   .datetime({
     offset: true,
     message: "Datetime must be a valid ISO 8601 timestamp with timezone offset",
@@ -48,13 +49,13 @@ export const createConsultationSchema = z.object({
   first_name: trimmedNameSchema("First name"),
   last_name: trimmedNameSchema("Last name"),
   reason: reasonSchema,
-  scheduled_at: futureIsoDatetimeSchema,
+  scheduled_at: consultationStartSchema,
   duration_minutes: durationSchema.default(DEFAULT_SESSION_DURATION_MINUTES),
 });
 
 export const rescheduleConsultationSchema = z.object({
   action: z.literal("reschedule"),
-  scheduled_at: futureIsoDatetimeSchema,
+  scheduled_at: consultationStartSchema,
   duration_minutes: durationSchema.optional(),
   reason: reasonSchema.optional(),
 });
@@ -95,6 +96,9 @@ export const listConsultationsQuerySchema = z.object({
   sort: consultationSortOptionSchema.default("scheduled_at_desc"),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(50).default(10),
+  // Optional scheduled_at window [from, to), used by the booking time picker.
+  from: z.iso.datetime({ offset: true }).optional(),
+  to: z.iso.datetime({ offset: true }).optional(),
 });
 
 export type CreateConsultationInput = z.infer<typeof createConsultationSchema>;

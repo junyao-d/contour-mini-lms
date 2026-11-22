@@ -310,12 +310,15 @@ All endpoints return consistent JSON envelopes:
 
 ### Business Logic Improvements
 - **User Profile Management Page**: Allow students to update their own `first_name` / `last_name` (backed by a dedicated `PATCH /api/me` route and column-scoped RLS policy, while keeping `role` locked by `prevent_role_change()`).
+- **Admin User Management & Invite-Only Admin Onboarding**: Add a User Management page in the Admin Console where admins can view student profiles and send single-use, time-limited invitation links via email to onboard new `admin` users securely — replacing manual SQL role promotion in the database.
+- **Consultation Type & Automated Tutor Matching**: Include a Consultation Type / Subject dropdown in the booking form so requests can automatically match students with an appropriate available tutor/consultant when they do not select a specific one.
 - **Tutor / Staff Scheduling & Completion Sign-Off**: Model instructors, working hours, and configurable consultation durations (with exclusion constraints per tutor as well as per student), and optionally gate completion until `scheduled_at <= now()` or tutor attendance confirmation.
 - **Audit Log Table**: Record full reschedule/status-change history (`consultation_events`) rather than only the most recent `rescheduled_at` timestamp.
 - **Email / Calendar Notifications**: Send confirmation, reminder, and cancellation notifications (and `.ics` calendar invites) on booking/reschedule/cancel events.
 
 
 ### Technical Improvements
+- **Stronger Authentication Methods (Passwordless / Institutional SSO / MFA)**: Replace standalone email + password login with passwordless Email OTP / Magic Links or institutional SSO (SAML/OIDC) tied to verified school identities — or at minimum enforce multi-factor authentication (password + OTP/TOTP), especially for `admin` accounts.
 - **JWT Role Claim Caching & Rate Limiting**: Add a Supabase Custom Access Token Hook to avoid per-request `profiles` lookups at high scale, and add Redis/Upstash rate limiting on auth and booking endpoints.
 - **Playwright E2E Suite**: Add automated browser end-to-end tests running against ephemeral local Supabase instances in CI.
 

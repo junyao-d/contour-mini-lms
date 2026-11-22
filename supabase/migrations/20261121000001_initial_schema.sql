@@ -128,9 +128,13 @@ create trigger trg_profiles_prevent_role_change
 -- Required for GiST exclusion constraints combining UUID equality with tstzrange overlap
 create extension if not exists btree_gist;
 
--- Immutable helper returning the half-open 60-minute (1-hour) booking window [scheduled_at, scheduled_at + 60m).
--- Uses UTC epoch arithmetic (+3600s) so the expression is strictly IMMUTABLE for indexing.
-create or replace function public.consultation_slot_range(p_scheduled_at timestamptz)
+-- Immutable helper returning the half-open session window [scheduled_at, scheduled_at + duration).
+-- Uses UTC epoch arithmetic so the expression is strictly IMMUTABLE for indexing
+-- (timestamptz + interval is only STABLE).
+create or replace function public.consultation_slot_range(
+  p_scheduled_at timestamptz,
+  p_duration_minutes smallint
+)
 returns tstzrange
 language sql
 immutable
@@ -139,7 +143,7 @@ set search_path = ''
 as $$
   select pg_catalog.tstzrange(
     p_scheduled_at,
-    pg_catalog.to_timestamp(extract(epoch from p_scheduled_at) + 3600),
+    pg_catalog.to_timestamp(extract(epoch from p_scheduled_at) + p_duration_minutes * 60),
     '[)'
   );
 $$;
@@ -151,6 +155,10 @@ create table public.consultations (
   last_name text not null check (char_length(trim(last_name)) between 1 and 100),
   reason text not null check (char_length(trim(reason)) between 1 and 1000),
   scheduled_at timestamptz not null,
+  -- Session length; options must stay in sync with SESSION_DURATION_OPTIONS and
+  -- DEFAULT_SESSION_DURATION_MINUTES in lib/domain/consultation-constants.ts
+  duration_minutes smallint not null default 15
+    check (duration_minutes in (15, 30, 45, 60)),
   status public.consultation_status not null default 'scheduled',
   completed_at timestamptz,
   cancelled_at timestamptz,
@@ -168,11 +176,11 @@ create table public.consultations (
     or (status <> 'cancelled' and cancelled_at is null)
   ),
 
-  -- Prevent a student from holding overlapping active consultations within 60 minutes (1 hour)
+  -- A student's scheduled sessions may not overlap (back-to-back is allowed: ranges are half-open)
   constraint no_overlapping_scheduled_consultations
     exclude using gist (
       user_id with =,
-      public.consultation_slot_range(scheduled_at) with &&
+      public.consultation_slot_range(scheduled_at, duration_minutes) with &&
     )
     where (status = 'scheduled')
 );
@@ -272,6 +280,7 @@ begin
         using errcode = '22023', hint = 'COMPLETED_NOT_CANCELLABLE';
     end if;
     if new.scheduled_at is distinct from old.scheduled_at
+       or new.duration_minutes is distinct from old.duration_minutes
        or new.reason is distinct from old.reason then
       raise exception 'Completed consultations cannot be rescheduled or edited'
         using errcode = '22023', hint = 'COMPLETED_NOT_EDITABLE';
@@ -286,6 +295,7 @@ begin
   -- old.status = 'scheduled'
   if new.status = 'cancelled' then
     if new.scheduled_at is distinct from old.scheduled_at
+       or new.duration_minutes is distinct from old.duration_minutes
        or new.reason is distinct from old.reason then
       raise exception 'Cannot reschedule or edit a consultation while cancelling'
         using errcode = '22023', hint = 'MIXED_UPDATE';
@@ -298,6 +308,7 @@ begin
 
   if new.status = 'completed' then
     if new.scheduled_at is distinct from old.scheduled_at
+       or new.duration_minutes is distinct from old.duration_minutes
        or new.reason is distinct from old.reason then
       raise exception 'Cannot reschedule or edit a consultation while completing'
         using errcode = '22023', hint = 'MIXED_UPDATE';
@@ -317,6 +328,8 @@ begin
   new.cancelled_at := null;
   if new.scheduled_at is distinct from old.scheduled_at then
     perform public.assert_valid_consultation_time(new.scheduled_at);
+    new.rescheduled_at := now();
+  elsif new.duration_minutes is distinct from old.duration_minutes then
     new.rescheduled_at := now();
   else
     new.rescheduled_at := old.rescheduled_at;
@@ -452,6 +465,7 @@ select
   c.last_name,
   c.reason,
   c.scheduled_at,
+  c.duration_minutes,
   c.status,
   c.completed_at,
   c.cancelled_at,

@@ -1,6 +1,8 @@
 import { z } from "zod";
 import {
+  DEFAULT_SESSION_DURATION_MINUTES,
   MAX_BOOKING_HORIZON_DAYS,
+  SESSION_DURATION_OPTIONS,
   SLOT_GRANULARITY_MINUTES,
 } from "@/lib/domain/consultation-constants";
 
@@ -36,6 +38,10 @@ const futureIsoDatetimeSchema = z.iso
     message: `Consultation time must start on a ${SLOT_GRANULARITY_MINUTES}-minute boundary (e.g. 10:00, 10:15)`,
   });
 
+const durationSchema = z.literal(SESSION_DURATION_OPTIONS, {
+  error: `Session length must be one of ${SESSION_DURATION_OPTIONS.join(", ")} minutes`,
+});
+
 export const uuidParamSchema = z.uuid("Invalid consultation ID");
 
 export const createConsultationSchema = z.object({
@@ -43,11 +49,13 @@ export const createConsultationSchema = z.object({
   last_name: trimmedNameSchema("Last name"),
   reason: reasonSchema,
   scheduled_at: futureIsoDatetimeSchema,
+  duration_minutes: durationSchema.default(DEFAULT_SESSION_DURATION_MINUTES),
 });
 
 export const rescheduleConsultationSchema = z.object({
   action: z.literal("reschedule"),
   scheduled_at: futureIsoDatetimeSchema,
+  duration_minutes: durationSchema.optional(),
   reason: reasonSchema.optional(),
 });
 

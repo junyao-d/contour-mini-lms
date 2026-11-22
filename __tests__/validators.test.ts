@@ -85,6 +85,29 @@ describe("consultation validators", () => {
     ).toBe(true);
   });
 
+  it("defaults the session length to 15 minutes and only allows 15/30/45/60", () => {
+    const base = {
+      first_name: "Alice",
+      last_name: "Chen",
+      reason: "Homework help",
+      scheduled_at: futureIso(),
+    };
+
+    expect(createConsultationSchema.parse(base).duration_minutes).toBe(15);
+    expect(
+      createConsultationSchema.parse({ ...base, duration_minutes: 60 })
+        .duration_minutes,
+    ).toBe(60);
+    expect(
+      createConsultationSchema.safeParse({ ...base, duration_minutes: 20 })
+        .success,
+    ).toBe(false);
+    expect(
+      createConsultationSchema.safeParse({ ...base, duration_minutes: 90 })
+        .success,
+    ).toBe(false);
+  });
+
   it("validates discriminated PATCH actions cleanly", () => {
     expect(
       updateConsultationSchema.safeParse({

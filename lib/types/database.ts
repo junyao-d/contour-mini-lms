@@ -51,6 +51,7 @@ export type Database = {
           last_name: string;
           reason: string;
           scheduled_at: string;
+          duration_minutes: number;
           status: ConsultationStatus;
           completed_at: string | null;
           cancelled_at: string | null;
@@ -65,6 +66,7 @@ export type Database = {
           last_name: string;
           reason: string;
           scheduled_at: string;
+          duration_minutes?: number;
           status?: ConsultationStatus;
           completed_at?: string | null;
           cancelled_at?: string | null;
@@ -79,6 +81,7 @@ export type Database = {
           last_name?: string;
           reason?: string;
           scheduled_at?: string;
+          duration_minutes?: number;
           status?: ConsultationStatus;
           completed_at?: string | null;
           cancelled_at?: string | null;
@@ -106,6 +109,7 @@ export type Database = {
           last_name: string;
           reason: string;
           scheduled_at: string;
+          duration_minutes: number;
           status: ConsultationStatus;
           completed_at: string | null;
           cancelled_at: string | null;
@@ -127,6 +131,7 @@ export type Database = {
       consultation_slot_range: {
         Args: {
           p_scheduled_at: string;
+          p_duration_minutes: number;
         };
         Returns: string;
       };

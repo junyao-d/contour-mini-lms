@@ -4,18 +4,18 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(22);
+select plan(28);
 
 -- Setup as postgres (bypasses the guard trigger): consultations that already started,
 -- which a student cannot create directly because bookings must be in the future.
-insert into public.consultations (id, user_id, first_name, last_name, reason, scheduled_at, status, completed_at)
+insert into public.consultations (id, user_id, first_name, last_name, reason, scheduled_at, status, completed_at, duration_minutes)
 values
   ('c0000000-0000-4000-8000-000000000003', '22222222-2222-4222-8222-222222222222',
    'Alice', 'Chen', 'Completed in the past', date_trunc('hour', now()) - interval '2 days',
-   'completed', now()),
+   'completed', now(), 15),
   ('c0000000-0000-4000-8000-000000000005', '22222222-2222-4222-8222-222222222222',
    'Alice', 'Chen', 'Completed, will be reopened', date_trunc('hour', now()) - interval '5 days',
-   'completed', now());
+   'completed', now(), 60);
 
 insert into public.consultations (id, user_id, first_name, last_name, reason, scheduled_at)
 values
@@ -29,13 +29,13 @@ set local role authenticated;
 set local request.jwt.claims = '{"sub":"22222222-2222-4222-8222-222222222222","role":"authenticated"}';
 
 -- ---------------------------------------------------------------------------
--- 1. 60-minute exclusion constraint
+-- 1. Exclusion constraint: a 60-minute session blocks its whole window
 -- ---------------------------------------------------------------------------
 select lives_ok(
-  $$ insert into public.consultations (id, user_id, first_name, last_name, reason, scheduled_at)
+  $$ insert into public.consultations (id, user_id, first_name, last_name, reason, scheduled_at, duration_minutes)
      values ('c0000000-0000-4000-8000-000000000001', '22222222-2222-4222-8222-222222222222',
-             'Alice', 'Chen', 'Slot test', date_trunc('hour', now()) + interval '30 days') $$,
-  'student can book a future slot'
+             'Alice', 'Chen', 'Slot test', date_trunc('hour', now()) + interval '30 days', 60) $$,
+  'student can book a future 60-minute session'
 );
 
 select throws_ok(
@@ -43,14 +43,14 @@ select throws_ok(
      values ('22222222-2222-4222-8222-222222222222', 'Alice', 'Chen', 'Overlap',
              date_trunc('hour', now()) + interval '30 days 30 minutes') $$,
   '23P01', null,
-  'booking 30 minutes after an active consultation is rejected'
+  'booking 30 minutes into an active 60-minute session is rejected'
 );
 
 select lives_ok(
   $$ insert into public.consultations (user_id, first_name, last_name, reason, scheduled_at)
      values ('22222222-2222-4222-8222-222222222222', 'Alice', 'Chen', 'Adjacent',
              date_trunc('hour', now()) + interval '30 days 60 minutes') $$,
-  'booking exactly 60 minutes later is allowed'
+  'booking right after a 60-minute session ends is allowed'
 );
 
 select lives_ok(
@@ -60,9 +60,9 @@ select lives_ok(
 );
 
 select lives_ok(
-  $$ insert into public.consultations (user_id, first_name, last_name, reason, scheduled_at)
+  $$ insert into public.consultations (user_id, first_name, last_name, reason, scheduled_at, duration_minutes)
      values ('22222222-2222-4222-8222-222222222222', 'Alice', 'Chen', 'Rebook',
-             date_trunc('hour', now()) + interval '30 days') $$,
+             date_trunc('hour', now()) + interval '30 days', 60) $$,
   'a slot freed by cancellation can be booked again'
 );
 
@@ -202,6 +202,57 @@ select lives_ok(
   $$ update public.consultations set status = 'completed'
      where id = 'c0000000-0000-4000-8000-000000000008' $$,
   'completing a consultation after it started is allowed'
+);
+
+-- ---------------------------------------------------------------------------
+-- 10. Session length (15/30/45/60) drives the overlap window
+-- ---------------------------------------------------------------------------
+select lives_ok(
+  $$ insert into public.consultations (id, user_id, first_name, last_name, reason, scheduled_at, duration_minutes)
+     values ('c0000000-0000-4000-8000-000000000009', '22222222-2222-4222-8222-222222222222',
+             'Alice', 'Chen', 'Short A', date_trunc('hour', now()) + interval '70 days', 15),
+            ('c0000000-0000-4000-8000-000000000010', '22222222-2222-4222-8222-222222222222',
+             'Alice', 'Chen', 'Short B', date_trunc('hour', now()) + interval '70 days 15 minutes', 15),
+            ('c0000000-0000-4000-8000-000000000011', '22222222-2222-4222-8222-222222222222',
+             'Alice', 'Chen', 'Short C', date_trunc('hour', now()) + interval '70 days 60 minutes', 15) $$,
+  'back-to-back 15-minute sessions are allowed (A, B, then C at +60)'
+);
+
+select is(
+  (select duration_minutes::int from public.consultations
+   where id = 'c0000000-0000-4000-8000-000000000004'),
+  15,
+  'session length defaults to 15 minutes'
+);
+
+select throws_ok(
+  $$ insert into public.consultations (user_id, first_name, last_name, reason, scheduled_at, duration_minutes)
+     values ('22222222-2222-4222-8222-222222222222', 'Alice', 'Chen', 'Overlaps a 45',
+             date_trunc('hour', now()) + interval '70 days 30 minutes', 45) $$,
+  '23P01', null,
+  'a 45-minute session cannot run into the next booking'
+);
+
+select lives_ok(
+  $$ insert into public.consultations (user_id, first_name, last_name, reason, scheduled_at, duration_minutes)
+     values ('22222222-2222-4222-8222-222222222222', 'Alice', 'Chen', 'Fits after',
+             date_trunc('hour', now()) + interval '70 days 30 minutes', 30) $$,
+  'a 30-minute session that starts when the previous one ends is allowed'
+);
+
+select throws_ok(
+  $$ insert into public.consultations (user_id, first_name, last_name, reason, scheduled_at, duration_minutes)
+     values ('22222222-2222-4222-8222-222222222222', 'Alice', 'Chen', 'Odd length',
+             date_trunc('hour', now()) + interval '75 days', 20) $$,
+  '23514', null,
+  'a session length outside 15/30/45/60 is rejected'
+);
+
+select throws_ok(
+  $$ update public.consultations set duration_minutes = 30
+     where id = 'c0000000-0000-4000-8000-000000000009' $$,
+  '23P01', null,
+  'lengthening a session into the next booking is rejected'
 );
 
 select * from finish();

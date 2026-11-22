@@ -1,9 +1,12 @@
 /**
- * Minimum spacing (in minutes) required between a student's active scheduled consultations.
- * Keep in sync with `public.consultation_slot_range` (+3600s) in
+ * Session lengths a student can book. A student's scheduled sessions may not overlap;
+ * longer needs are covered by booking another, back-to-back session.
+ * Keep in sync with the `duration_minutes` CHECK constraint and default in
  * `supabase/migrations/20261121000001_initial_schema.sql`.
  */
-export const MIN_CONSULTATION_GAP_MINUTES = 60;
+export const SESSION_DURATION_OPTIONS = [15, 30, 45, 60] as const;
+export type SessionDuration = (typeof SESSION_DURATION_OPTIONS)[number];
+export const DEFAULT_SESSION_DURATION_MINUTES: SessionDuration = 15;
 
 /**
  * Bookings and reschedules must fall within this many days from now.

@@ -74,6 +74,7 @@ export async function POST(request: NextRequest) {
         last_name: lastName,
         reason: input.reason,
         scheduled_at: input.scheduled_at,
+        duration_minutes: input.duration_minutes,
         status: "scheduled",
       })
       .select("*")

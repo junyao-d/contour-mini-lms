@@ -3,7 +3,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getSafeRedirectPath } from "@/lib/api/redirect";
 import { parseJsonBody } from "@/lib/api/request";
 import { ApiError, handleApiError } from "@/lib/api/response";
-import { MIN_CONSULTATION_GAP_MINUTES } from "@/lib/domain/consultation-constants";
 
 const mockRequireAuth = vi.fn();
 const mockRequireStudent = vi.fn();
@@ -76,9 +75,7 @@ describe("redirect & request security helpers", () => {
     expect(conflictRes.status).toBe(409);
     const conflictJson = await conflictRes.json();
     expect(conflictJson.error.code).toBe("TIME_SLOT_CONFLICT");
-    expect(conflictJson.error.message).toContain(
-      `${MIN_CONSULTATION_GAP_MINUTES} minutes`,
-    );
+    expect(conflictJson.error.message).toContain("overlaps");
 
     const ruleRes = handleApiError({ code: "22023" });
     expect(ruleRes.status).toBe(422);

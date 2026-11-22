@@ -9,7 +9,7 @@ const PAST_SLOT = "2026-11-21T10:00:00.000Z";
 describe("buildConsultationUpdate state machine", () => {
   it("transitions scheduled -> completed with completed_at once started", () => {
     const result = buildConsultationUpdate(
-      { status: "scheduled", scheduled_at: PAST_SLOT },
+      { status: "scheduled", scheduled_at: PAST_SLOT, duration_minutes: 60 },
       { action: "toggle_complete", completed: true },
       NOW,
     );
@@ -22,7 +22,7 @@ describe("buildConsultationUpdate state machine", () => {
 
   it("rejects completing a consultation that has not started yet", () => {
     const result = buildConsultationUpdate(
-      { status: "scheduled", scheduled_at: SLOT_A },
+      { status: "scheduled", scheduled_at: SLOT_A, duration_minutes: 60 },
       { action: "toggle_complete", completed: true },
       NOW,
     );
@@ -32,7 +32,7 @@ describe("buildConsultationUpdate state machine", () => {
 
   it("transitions completed -> scheduled (mark incomplete) clearing completed_at", () => {
     const result = buildConsultationUpdate(
-      { status: "completed", scheduled_at: SLOT_A },
+      { status: "completed", scheduled_at: SLOT_A, duration_minutes: 60 },
       { action: "toggle_complete", completed: false },
       NOW,
     );
@@ -45,7 +45,7 @@ describe("buildConsultationUpdate state machine", () => {
 
   it("transitions scheduled -> cancelled with cancelled_at", () => {
     const result = buildConsultationUpdate(
-      { status: "scheduled", scheduled_at: SLOT_A },
+      { status: "scheduled", scheduled_at: SLOT_A, duration_minutes: 60 },
       { action: "cancel" },
       NOW,
     );
@@ -58,7 +58,7 @@ describe("buildConsultationUpdate state machine", () => {
 
   it("rejects cancelling a completed consultation", () => {
     const result = buildConsultationUpdate(
-      { status: "completed", scheduled_at: SLOT_A },
+      { status: "completed", scheduled_at: SLOT_A, duration_minutes: 60 },
       { action: "cancel" },
       NOW,
     );
@@ -69,7 +69,7 @@ describe("buildConsultationUpdate state machine", () => {
   it("rejects all modifications on a cancelled consultation", () => {
     expect(
       buildConsultationUpdate(
-        { status: "cancelled", scheduled_at: SLOT_A },
+        { status: "cancelled", scheduled_at: SLOT_A, duration_minutes: 60 },
         { action: "toggle_complete", completed: false },
         NOW,
       ).ok,
@@ -77,7 +77,7 @@ describe("buildConsultationUpdate state machine", () => {
 
     expect(
       buildConsultationUpdate(
-        { status: "cancelled", scheduled_at: SLOT_A },
+        { status: "cancelled", scheduled_at: SLOT_A, duration_minutes: 60 },
         { action: "reschedule", scheduled_at: SLOT_B },
         NOW,
       ).ok,
@@ -86,7 +86,7 @@ describe("buildConsultationUpdate state machine", () => {
 
   it("stamps rescheduled_at only when scheduled_at actually changes", () => {
     const timeChanged = buildConsultationUpdate(
-      { status: "scheduled", scheduled_at: SLOT_A },
+      { status: "scheduled", scheduled_at: SLOT_A, duration_minutes: 60 },
       { action: "reschedule", scheduled_at: SLOT_B, reason: "New reason" },
       NOW,
     );
@@ -100,7 +100,7 @@ describe("buildConsultationUpdate state machine", () => {
     });
 
     const reasonOnly = buildConsultationUpdate(
-      { status: "scheduled", scheduled_at: SLOT_A },
+      { status: "scheduled", scheduled_at: SLOT_A, duration_minutes: 60 },
       { action: "reschedule", scheduled_at: SLOT_A, reason: "Edited reason" },
       NOW,
     );
@@ -108,5 +108,24 @@ describe("buildConsultationUpdate state machine", () => {
       ok: true,
       patch: { reason: "Edited reason" },
     });
+  });
+
+  it("treats a length change as a reschedule", () => {
+    const result = buildConsultationUpdate(
+      { status: "scheduled", scheduled_at: SLOT_A, duration_minutes: 15 },
+      { action: "reschedule", scheduled_at: SLOT_A, duration_minutes: 45 },
+      NOW,
+    );
+    expect(result).toEqual({
+      ok: true,
+      patch: { duration_minutes: 45, rescheduled_at: NOW.toISOString() },
+    });
+
+    const unchanged = buildConsultationUpdate(
+      { status: "scheduled", scheduled_at: SLOT_A, duration_minutes: 45 },
+      { action: "reschedule", scheduled_at: SLOT_A, duration_minutes: 45 },
+      NOW,
+    );
+    expect(unchanged).toEqual({ ok: true, patch: {} });
   });
 });

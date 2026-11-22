@@ -13,7 +13,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { MIN_CONSULTATION_GAP_MINUTES } from "@/lib/domain/consultation-constants";
 import {
   getBookingInputBounds,
   getDefaultBookingDateTime,
@@ -41,8 +40,8 @@ export function BookConsultationDialog({
         <DialogHeader>
           <DialogTitle>Book a Consultation</DialogTitle>
           <DialogDescription>
-            Schedule an upcoming consultation session. Active consultations must
-            be spaced at least {MIN_CONSULTATION_GAP_MINUTES} minutes apart.
+            Schedule an upcoming consultation session. Sessions can&apos;t
+            overlap with your other upcoming sessions.
           </DialogDescription>
         </DialogHeader>
 

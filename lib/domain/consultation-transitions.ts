@@ -14,7 +14,7 @@ export function hasStarted(scheduledAt: string, now: Date = new Date()): boolean
 }
 
 export function buildConsultationUpdate(
-  current: Pick<Consultation, "status" | "scheduled_at">,
+  current: Pick<Consultation, "status" | "scheduled_at" | "duration_minutes">,
   input: UpdateConsultationInput,
   now: Date = new Date(),
 ): TransitionResult {
@@ -78,8 +78,17 @@ export function buildConsultationUpdate(
         new Date(input.scheduled_at).getTime() !==
         new Date(current.scheduled_at).getTime();
 
+      const durationChanged =
+        input.duration_minutes !== undefined &&
+        input.duration_minutes !== current.duration_minutes;
+
       if (timeChanged) {
         patch.scheduled_at = input.scheduled_at;
+      }
+      if (durationChanged) {
+        patch.duration_minutes = input.duration_minutes;
+      }
+      if (timeChanged || durationChanged) {
         patch.rescheduled_at = nowIso;
       }
 

@@ -3,7 +3,6 @@ import { NextResponse } from "next/server";
 import { ZodError } from "zod";
 import {
   MAX_BOOKING_HORIZON_DAYS,
-  MIN_CONSULTATION_GAP_MINUTES,
   SLOT_GRANULARITY_MINUTES,
 } from "@/lib/domain/consultation-constants";
 
@@ -136,7 +135,8 @@ export function handleApiError(error: unknown) {
       {
         error: {
           code: "TIME_SLOT_CONFLICT",
-          message: `You already have a scheduled consultation within ${MIN_CONSULTATION_GAP_MINUTES} minutes of this time.`,
+          message:
+            "This time overlaps another of your scheduled sessions. Pick a different time or length.",
         },
       },
       { status: 409 },

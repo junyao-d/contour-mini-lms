@@ -7,7 +7,7 @@ import {
   GraduationCap,
   ShieldCheck,
 } from "lucide-react";
-import { MIN_CONSULTATION_GAP_MINUTES } from "@/lib/domain/consultation-constants";
+import { SESSION_DURATION_OPTIONS } from "@/lib/domain/consultation-constants";
 import { getCurrentSession } from "@/lib/auth/session";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -79,9 +79,9 @@ export default function HomePage() {
               <CardTitle className="text-base">Easy Booking</CardTitle>
             </CardHeader>
             <CardContent className="text-sm text-muted-foreground">
-              Schedule consultations in seconds with automatic profile prefill
-              and conflict-free {MIN_CONSULTATION_GAP_MINUTES}-minute time
-              windows.
+              Pick a time and a session length ({SESSION_DURATION_OPTIONS[0]}
+              to {SESSION_DURATION_OPTIONS[SESSION_DURATION_OPTIONS.length - 1]}{" "}
+              minutes). Your sessions never overlap.
             </CardContent>
           </Card>
 

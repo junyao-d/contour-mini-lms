@@ -13,7 +13,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { MIN_CONSULTATION_GAP_MINUTES } from "@/lib/domain/consultation-constants";
 import {
   getBookingInputBounds,
   readApiErrorMessage,
@@ -38,9 +37,9 @@ export function RescheduleConsultationDialog({
         <DialogHeader>
           <DialogTitle>Reschedule Consultation</DialogTitle>
           <DialogDescription>
-            Choose a new upcoming date and time (at least{" "}
-            {MIN_CONSULTATION_GAP_MINUTES} minutes apart from other active
-            consultations) or update your consultation reason.
+            Choose a new upcoming date and time or update your consultation
+            reason. Sessions can&apos;t overlap with your other upcoming
+            sessions.
           </DialogDescription>
         </DialogHeader>
 

@@ -1,5 +1,7 @@
 # Contour Mini-LMS
 
+[![CI](https://github.com/junyao-d/contour-mini-lms/actions/workflows/ci.yml/badge.svg)](https://github.com/junyao-d/contour-mini-lms/actions/workflows/ci.yml)
+
 ## 1. Project Tech Stack
 
 - **Framework**: Next.js 16 (App Router, Turbopack, `proxy.ts`)

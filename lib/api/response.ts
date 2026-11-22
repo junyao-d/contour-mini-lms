@@ -37,6 +37,16 @@ function formatZodIssues(error: ZodError): Record<string, string[]> {
 }
 
 export function handleApiError(error: unknown) {
+  // Rethrow Next.js internal prerender signals so build-time dynamic probing stays clean.
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "digest" in error &&
+    (error as { digest?: unknown }).digest === "HANGING_PROMISE_REJECTION"
+  ) {
+    throw error;
+  }
+
   if (error instanceof ApiError) {
     return NextResponse.json(
       {

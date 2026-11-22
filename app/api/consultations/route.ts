@@ -1,5 +1,5 @@
 import { type NextRequest } from "next/server";
-import { requireAuth } from "@/lib/api/auth";
+import { requireStudent } from "@/lib/api/auth";
 import {
   buildPaginationMeta,
   fetchConsultationSummary,
@@ -13,7 +13,7 @@ import { createConsultationSchema } from "@/lib/validators/consultation";
 
 export async function GET(request: NextRequest) {
   try {
-    const { supabase, user } = await requireAuth();
+    const { supabase, user } = await requireStudent();
     const { status, search, sort, page, pageSize } = parseListQuery(request.url);
     const { column, ascending } = getSortConfig(sort);
     const from = (page - 1) * pageSize;
@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const { supabase, user } = await requireAuth();
+    const { supabase, user } = await requireStudent();
     const body = await parseJsonBody(request);
     const input = createConsultationSchema.parse(body);
 

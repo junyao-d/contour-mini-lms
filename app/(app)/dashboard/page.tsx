@@ -15,9 +15,13 @@ async function DashboardContent() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("first_name, last_name")
+    .select("first_name, last_name, role")
     .eq("id", user.id)
     .maybeSingle();
+
+  if (profile?.role === "admin") {
+    redirect("/admin");
+  }
 
   return (
     <StudentDashboard

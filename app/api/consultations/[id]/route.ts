@@ -1,5 +1,5 @@
 import { type NextRequest } from "next/server";
-import { requireAuth } from "@/lib/api/auth";
+import { requireAuth, requireStudent } from "@/lib/api/auth";
 import { parseJsonBody } from "@/lib/api/request";
 import { ApiError, handleApiError, jsonSuccess } from "@/lib/api/response";
 import { buildConsultationUpdate } from "@/lib/domain/consultation-transitions";
@@ -38,7 +38,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
 
 export async function PATCH(request: NextRequest, context: RouteContext) {
   try {
-    const { supabase, user } = await requireAuth();
+    const { supabase, user } = await requireStudent();
     const { id } = await context.params;
     const consultationId = uuidParamSchema.parse(id);
     const body = await parseJsonBody(request);

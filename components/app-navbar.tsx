@@ -28,12 +28,13 @@ export async function AppNavbar() {
   }
 
   const isAdmin = role === "admin";
+  const homeHref = isAdmin ? "/admin" : "/dashboard";
 
   return (
     <div className="mx-auto flex h-16 w-full max-w-5xl items-center justify-between gap-4 px-4 sm:px-6">
       <div className="flex items-center gap-6">
         <Link
-          href="/dashboard"
+          href={homeHref}
           className="flex items-center gap-2 font-semibold tracking-tight"
         >
           <GraduationCap className="h-5 w-5 text-primary" />
@@ -42,19 +43,20 @@ export async function AppNavbar() {
 
         {user && (
           <nav className="flex items-center gap-4 text-sm">
-            <Link
-              href="/dashboard"
-              className="text-muted-foreground transition-colors hover:text-foreground"
-            >
-              My Consultations
-            </Link>
-            {isAdmin && (
+            {isAdmin ? (
               <Link
                 href="/admin"
                 className="flex items-center gap-1.5 text-muted-foreground transition-colors hover:text-foreground"
               >
                 <ShieldCheck className="h-4 w-4" />
                 <span>Admin Console</span>
+              </Link>
+            ) : (
+              <Link
+                href="/dashboard"
+                className="text-muted-foreground transition-colors hover:text-foreground"
+              >
+                My Consultations
               </Link>
             )}
           </nav>

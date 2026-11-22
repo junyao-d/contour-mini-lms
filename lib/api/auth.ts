@@ -33,6 +33,16 @@ export async function requireAuth(): Promise<AuthContext> {
   return { supabase, user, profile };
 }
 
+export async function requireStudent(): Promise<AuthContext> {
+  const context = await requireAuth();
+
+  if (context.profile.role !== "student") {
+    throw new ApiError(403, "FORBIDDEN", "Student access is required.");
+  }
+
+  return context;
+}
+
 export async function requireAdmin(): Promise<AuthContext> {
   const context = await requireAuth();
 

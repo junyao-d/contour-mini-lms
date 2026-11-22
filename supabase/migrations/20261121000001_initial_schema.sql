@@ -364,21 +364,28 @@ create policy "consultations_select_own_or_admin"
     or (select public.is_admin())
   );
 
--- 2. Authenticated users can book new consultations only for themselves as 'scheduled'.
+-- 2. Students can book new consultations only for themselves as 'scheduled' (admins are read-only).
 create policy "consultations_insert_own"
   on public.consultations
   for insert
   to authenticated
   with check (
     (select auth.uid()) = user_id
+    and not (select public.is_admin())
     and status = 'scheduled'
   );
 
--- 3. Owners can update (reschedule, complete/incomplete, cancel) only their own rows
---    and cannot reassign user_id. No DELETE policy (enforces soft-cancel auditability).
+-- 3. Student owners can update (reschedule, complete/incomplete, cancel) only their own rows
+--    and cannot reassign user_id. Admins remain read-only; no DELETE policy (soft-cancel).
 create policy "consultations_update_own"
   on public.consultations
   for update
   to authenticated
-  using ((select auth.uid()) = user_id)
-  with check ((select auth.uid()) = user_id);
+  using (
+    (select auth.uid()) = user_id
+    and not (select public.is_admin())
+  )
+  with check (
+    (select auth.uid()) = user_id
+    and not (select public.is_admin())
+  );

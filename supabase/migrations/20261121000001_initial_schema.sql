@@ -106,8 +106,8 @@ set search_path = ''
 as $$
 begin
   if old.role is distinct from new.role then
-    if current_user not in ('postgres', 'supabase_admin', 'service_role')
-       and coalesce(current_setting('request.jwt.claim.role', true), '') <> 'service_role' then
+    -- PostgREST switches to the service_role database role for service-key requests
+    if current_user not in ('postgres', 'supabase_admin', 'service_role') then
       raise exception 'Changing user role is not permitted'
         using errcode = '42501', hint = 'ROLE_CHANGE_FORBIDDEN';
     end if;
@@ -229,8 +229,7 @@ declare
   v_profile_last_name text;
 begin
   -- Allow migrations, seed scripts, and service-role admin operations
-  if current_user in ('postgres', 'supabase_admin', 'service_role')
-     or coalesce(current_setting('request.jwt.claim.role', true), '') = 'service_role' then
+  if current_user in ('postgres', 'supabase_admin', 'service_role') then
     return new;
   end if;
 
@@ -369,10 +368,6 @@ create index idx_consultations_scheduled_at
 
 create index idx_consultations_created_at
   on public.consultations (created_at desc);
-
--- Role lookup support
-create index idx_profiles_role
-  on public.profiles (role);
 
 -- ----------------------------------------------------------------------------
 -- 6. RBAC Helper & Row-Level Security (RLS)

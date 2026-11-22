@@ -152,7 +152,7 @@ export function StudentDashboard({
           <div className="relative w-full sm:w-56">
             <Search className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search reason or name..."
+              placeholder="Search reason..."
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
               className="pl-8"

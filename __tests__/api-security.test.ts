@@ -90,6 +90,57 @@ describe("redirect & request security helpers", () => {
   });
 });
 
+describe("database rule error mapping (trigger hints)", () => {
+  it("maps datetime rule hints to 400 VALIDATION_ERROR with a specific message", async () => {
+    const res = handleApiError({
+      code: "22023",
+      hint: "NOT_ON_SLOT",
+      message: "Consultation datetime must start on a 15-minute boundary",
+    });
+    expect(res.status).toBe(400);
+    const json = await res.json();
+    expect(json.error.code).toBe("VALIDATION_ERROR");
+    expect(json.error.message).toContain("15-minute boundary");
+
+    const horizon = await handleApiError({ code: "22023", hint: "OUTSIDE_HORIZON" }).json();
+    expect(horizon.error.message).toContain("90 days");
+  });
+
+  it("maps status rule hints to 409 INVALID_STATUS_TRANSITION", async () => {
+    for (const hint of [
+      "CANCELLED_IMMUTABLE",
+      "COMPLETED_NOT_CANCELLABLE",
+      "COMPLETED_NOT_EDITABLE",
+      "MIXED_UPDATE",
+      "NOT_STARTED",
+    ]) {
+      const res = handleApiError({ code: "22023", hint });
+      expect(res.status).toBe(409);
+      expect((await res.json()).error.code).toBe("INVALID_STATUS_TRANSITION");
+    }
+  });
+
+  it("maps IMMUTABLE_FIELD to 403 and never echoes the raw SQL message", async () => {
+    const res = handleApiError({
+      code: "42501",
+      hint: "IMMUTABLE_FIELD",
+      message: "Immutable consultation fields cannot be modified",
+      details: "internal",
+    });
+    expect(res.status).toBe(403);
+    const json = await res.json();
+    expect(json.error).toEqual({
+      code: "FORBIDDEN",
+      message: "These consultation fields cannot be changed.",
+    });
+  });
+
+  it("ignores unknown hints and falls back to the SQLSTATE mapping", async () => {
+    const res = handleApiError({ code: "22023", hint: "constructor" });
+    expect(res.status).toBe(422);
+  });
+});
+
 describe("API Route Handler RBAC & concurrency behavior", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -244,5 +295,66 @@ describe("API Route Handler RBAC & concurrency behavior", () => {
     expect(res.status).toBe(409);
     const json = await res.json();
     expect(json.error.code).toBe("CONCURRENT_MODIFICATION");
+  });
+
+  it("explains a slot conflict when marking a completed consultation incomplete", async () => {
+    const consultationId = "aaaaaaaa-aaaa-4aaa-8aaa-000000000003";
+    const userId = "22222222-2222-4222-8222-222222222222";
+    const existingRow = {
+      id: consultationId,
+      user_id: userId,
+      status: "completed",
+      scheduled_at: "2026-11-19T10:00:00.000Z",
+      updated_at: "2026-11-20T09:00:00.000Z",
+    };
+
+    const from = vi.fn().mockReturnValue({
+      select: () => ({
+        eq: () => ({
+          eq: () => ({
+            maybeSingle: vi.fn().mockResolvedValue({ data: existingRow, error: null }),
+          }),
+        }),
+      }),
+      update: () => ({
+        eq: () => ({
+          eq: () => ({
+            eq: () => ({
+              eq: () => ({
+                select: () => ({
+                  maybeSingle: vi.fn().mockResolvedValue({
+                    data: null,
+                    error: { code: "23P01", message: "conflicting key value" },
+                  }),
+                }),
+              }),
+            }),
+          }),
+        }),
+      }),
+    });
+
+    mockRequireStudent.mockResolvedValueOnce({
+      supabase: { from },
+      user: { id: userId },
+      profile: { id: userId, role: "student" },
+    });
+
+    const req = new NextRequest(
+      `http://localhost:3000/api/consultations/${consultationId}`,
+      {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action: "toggle_complete", completed: false }),
+      },
+    );
+
+    const res = await patchConsultation(req, {
+      params: Promise.resolve({ id: consultationId }),
+    });
+    expect(res.status).toBe(409);
+    const json = await res.json();
+    expect(json.error.code).toBe("TIME_SLOT_CONFLICT");
+    expect(json.error.message).toContain("Can't mark as incomplete");
   });
 });

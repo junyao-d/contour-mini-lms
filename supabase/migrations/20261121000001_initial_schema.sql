@@ -109,7 +109,7 @@ begin
     if current_user not in ('postgres', 'supabase_admin', 'service_role')
        and coalesce(current_setting('request.jwt.claim.role', true), '') <> 'service_role' then
       raise exception 'Changing user role is not permitted'
-        using errcode = '42501';
+        using errcode = '42501', hint = 'ROLE_CHANGE_FORBIDDEN';
     end if;
   end if;
   return new;
@@ -177,6 +177,9 @@ create table public.consultations (
     where (status = 'scheduled')
 );
 
+-- Rule violations raised below carry a stable machine-readable code in HINT
+-- (e.g. PAST_DATETIME); lib/api/response.ts maps it to a user-facing message.
+
 -- Validates a requested consultation start time (new bookings and reschedules).
 -- Numbers must stay in sync with lib/domain/consultation-constants.ts:
 --   90 days  = MAX_BOOKING_HORIZON_DAYS
@@ -190,18 +193,18 @@ as $$
 begin
   if p_scheduled_at <= now() then
     raise exception 'Consultation datetime must be in the future'
-      using errcode = '22023';
+      using errcode = '22023', hint = 'PAST_DATETIME';
   end if;
 
   if p_scheduled_at > now() + interval '90 days' then
     raise exception 'Consultation datetime must be within 90 days'
-      using errcode = '22023';
+      using errcode = '22023', hint = 'OUTSIDE_HORIZON';
   end if;
 
   -- Epoch-based so it is timezone independent (all UTC offsets are multiples of 15 minutes)
   if extract(epoch from p_scheduled_at) % 900 <> 0 then
     raise exception 'Consultation datetime must start on a 15-minute boundary'
-      using errcode = '22023';
+      using errcode = '22023', hint = 'NOT_ON_SLOT';
   end if;
 end;
 $$;
@@ -255,23 +258,23 @@ begin
      or new.first_name is distinct from old.first_name
      or new.last_name is distinct from old.last_name then
     raise exception 'Immutable consultation fields cannot be modified'
-      using errcode = '42501';
+      using errcode = '42501', hint = 'IMMUTABLE_FIELD';
   end if;
 
   if old.status = 'cancelled' then
     raise exception 'Cancelled consultations cannot be modified'
-      using errcode = '22023';
+      using errcode = '22023', hint = 'CANCELLED_IMMUTABLE';
   end if;
 
   if old.status = 'completed' then
     if new.status = 'cancelled' then
       raise exception 'Completed consultations cannot be cancelled'
-        using errcode = '22023';
+        using errcode = '22023', hint = 'COMPLETED_NOT_CANCELLABLE';
     end if;
     if new.scheduled_at is distinct from old.scheduled_at
        or new.reason is distinct from old.reason then
       raise exception 'Completed consultations cannot be rescheduled or edited'
-        using errcode = '22023';
+        using errcode = '22023', hint = 'COMPLETED_NOT_EDITABLE';
     end if;
 
     new.completed_at := case when new.status = 'scheduled' then null else old.completed_at end;
@@ -285,7 +288,7 @@ begin
     if new.scheduled_at is distinct from old.scheduled_at
        or new.reason is distinct from old.reason then
       raise exception 'Cannot reschedule or edit a consultation while cancelling'
-        using errcode = '22023';
+        using errcode = '22023', hint = 'MIXED_UPDATE';
     end if;
     new.cancelled_at := now();
     new.completed_at := null;
@@ -297,11 +300,11 @@ begin
     if new.scheduled_at is distinct from old.scheduled_at
        or new.reason is distinct from old.reason then
       raise exception 'Cannot reschedule or edit a consultation while completing'
-        using errcode = '22023';
+        using errcode = '22023', hint = 'MIXED_UPDATE';
     end if;
     if old.scheduled_at > now() then
       raise exception 'Consultation has not started yet and cannot be completed'
-        using errcode = '22023';
+        using errcode = '22023', hint = 'NOT_STARTED';
     end if;
     new.completed_at := now();
     new.cancelled_at := null;

@@ -116,7 +116,7 @@ where email = 'your-admin@example.com';
    - On an upcoming consultation, verify **Mark Complete** is disabled until it starts; on a past one (e.g. a seeded completed consultation), click **Mark Incomplete** / **Mark Complete** → verify status badge and KPI counts update.
    - **Reschedule** an upcoming consultation → verify new time and `Rescheduled ...` audit timestamp appear.
    - **Cancel** an upcoming consultation → confirm modal, verify status turns `Cancelled` and edit/complete controls lock.
-   - Visit `/admin` directly → verify `403 Access Denied` screen.
+   - Visit `/admin` directly → verify you are redirected to `/dashboard`.
 2. **Admin Flow** (log in as `admin@contour-lms.local`):
    - Verify automatic routing to `/admin` and navbar shows **Admin Console** only.
    - Verify consultations across both Alice and Bob are displayed with student account emails, filters, search (by name, email, or reason), sort, and pagination.
@@ -153,7 +153,7 @@ where email = 'your-admin@example.com';
   - **Reschedule** upcoming consultations (update datetime and/or reason) and **Cancel** consultations with confirmation (soft-cancel preserving audit history).
 - **Admin Console (`/admin`)**:
   - Strictly separated read-only view for users with the `admin` role displaying all consultations across all students (with student account email, filters, search, sort, pagination, and system-wide stats).
-  - Non-admin users are blocked at the page (`403 Access Denied`), API (`403 FORBIDDEN`), and database RLS layers.
+  - Non-admin users visiting `/admin` are redirected to `/dashboard` (a streamed client-side redirect, since the page is partially prerendered); the data itself is protected by the API (`403 FORBIDDEN`) and RLS.
 
 ### Architecture Overview
 All domain reads and mutations flow through RESTful Next.js Route Handlers (`app/api/**`) rather than Server Actions, backed by shared validation, pure domain transition rules, and PostgreSQL Row-Level Security.

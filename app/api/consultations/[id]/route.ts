@@ -78,7 +78,17 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       .select("*")
       .maybeSingle();
 
-    if (updateError) throw updateError;
+    if (updateError) {
+      // Reopening a completed consultation re-enters the slot constraint; explain the cause.
+      if (updateError.code === "23P01" && input.action === "toggle_complete") {
+        throw new ApiError(
+          409,
+          "TIME_SLOT_CONFLICT",
+          "Can't mark as incomplete: another scheduled consultation overlaps this time. Cancel or reschedule it first.",
+        );
+      }
+      throw updateError;
+    }
     if (!updated) {
       throw new ApiError(
         409,

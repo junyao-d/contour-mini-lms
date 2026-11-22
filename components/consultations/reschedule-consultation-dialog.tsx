@@ -92,8 +92,8 @@ export function RescheduleConsultationDialog({
         <DialogHeader>
           <DialogTitle>Reschedule Consultation</DialogTitle>
           <DialogDescription>
-            Choose a new upcoming date and time or update your consultation
-            reason.
+            Choose a new upcoming date and time (at least 60 minutes apart from
+            other active consultations) or update your consultation reason.
           </DialogDescription>
         </DialogHeader>
 

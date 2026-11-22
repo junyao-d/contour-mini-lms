@@ -82,7 +82,7 @@ export default function HomePage() {
             </CardHeader>
             <CardContent className="text-sm text-muted-foreground">
               Schedule consultations in seconds with automatic profile prefill
-              and conflict-free 30-minute time windows.
+              and conflict-free 60-minute time windows.
             </CardContent>
           </Card>
 

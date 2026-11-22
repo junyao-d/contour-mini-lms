@@ -104,7 +104,7 @@ export function BookConsultationDialog({
           <DialogTitle>Book a Consultation</DialogTitle>
           <DialogDescription>
             Schedule an upcoming consultation session. Active consultations must
-            be spaced at least 30 minutes apart.
+            be spaced at least 60 minutes (1 hour) apart.
           </DialogDescription>
         </DialogHeader>
 

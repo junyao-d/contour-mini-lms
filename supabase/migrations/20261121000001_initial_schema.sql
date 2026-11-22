@@ -128,8 +128,8 @@ create trigger trg_profiles_prevent_role_change
 -- Required for GiST exclusion constraints combining UUID equality with tstzrange overlap
 create extension if not exists btree_gist;
 
--- Immutable helper returning the half-open 30-minute booking window [scheduled_at, scheduled_at + 30m).
--- Uses UTC epoch arithmetic (+1800s) so the expression is strictly IMMUTABLE for indexing.
+-- Immutable helper returning the half-open 60-minute (1-hour) booking window [scheduled_at, scheduled_at + 60m).
+-- Uses UTC epoch arithmetic (+3600s) so the expression is strictly IMMUTABLE for indexing.
 create or replace function public.consultation_slot_range(p_scheduled_at timestamptz)
 returns tstzrange
 language sql
@@ -139,7 +139,7 @@ set search_path = ''
 as $$
   select pg_catalog.tstzrange(
     p_scheduled_at,
-    pg_catalog.to_timestamp(extract(epoch from p_scheduled_at) + 1800),
+    pg_catalog.to_timestamp(extract(epoch from p_scheduled_at) + 3600),
     '[)'
   );
 $$;
@@ -168,7 +168,7 @@ create table public.consultations (
     or (status <> 'cancelled' and cancelled_at is null)
   ),
 
-  -- Prevent a student from holding overlapping active consultations within 30 minutes
+  -- Prevent a student from holding overlapping active consultations within 60 minutes (1 hour)
   constraint no_overlapping_scheduled_consultations
     exclude using gist (
       user_id with =,

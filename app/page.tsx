@@ -1,58 +1,118 @@
-import { DeployButton } from "@/components/deploy-button";
-import { EnvVarWarning } from "@/components/env-var-warning";
-import { AuthButton } from "@/components/auth-button";
-import { Hero } from "@/components/hero";
-import { ThemeSwitcher } from "@/components/theme-switcher";
-import { ConnectSupabaseSteps } from "@/components/tutorial/connect-supabase-steps";
-import { SignUpUserSteps } from "@/components/tutorial/sign-up-user-steps";
-import { hasEnvVars } from "@/lib/utils";
-import Link from "next/link";
 import { Suspense } from "react";
+import Link from "next/link";
+import { redirect } from "next/navigation";
+import {
+  CalendarCheck,
+  CalendarClock,
+  GraduationCap,
+  ShieldCheck,
+} from "lucide-react";
+import { createClient } from "@/lib/supabase/server";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ThemeSwitcher } from "@/components/theme-switcher";
 
-export default function Home() {
+async function AuthRedirectCheck() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (user) {
+    redirect("/dashboard");
+  }
+
+  return null;
+}
+
+export default function HomePage() {
   return (
-    <main className="min-h-screen flex flex-col items-center">
-      <div className="flex-1 w-full flex flex-col gap-20 items-center">
-        <nav className="w-full flex justify-center border-b border-b-foreground/10 h-16">
-          <div className="w-full max-w-5xl flex justify-between items-center p-3 px-5 text-sm">
-            <div className="flex gap-5 items-center font-semibold">
-              <Link href={"/"}>Next.js Supabase Starter</Link>
-              <div className="flex items-center gap-2">
-                <DeployButton />
-              </div>
-            </div>
-            {!hasEnvVars ? (
-              <EnvVarWarning />
-            ) : (
-              <Suspense>
-                <AuthButton />
-              </Suspense>
-            )}
-          </div>
-        </nav>
-        <div className="flex-1 flex flex-col gap-20 max-w-5xl p-5">
-          <Hero />
-          <main className="flex-1 flex flex-col gap-6 px-4">
-            <h2 className="font-medium text-xl mb-4">Next steps</h2>
-            {hasEnvVars ? <SignUpUserSteps /> : <ConnectSupabaseSteps />}
-          </main>
-        </div>
+    <div className="flex min-h-screen flex-col">
+      <Suspense fallback={null}>
+        <AuthRedirectCheck />
+      </Suspense>
 
-        <footer className="w-full flex items-center justify-center border-t mx-auto text-center text-xs gap-8 py-16">
-          <p>
-            Powered by{" "}
-            <a
-              href="https://supabase.com/?utm_source=create-next-app&utm_medium=template&utm_term=nextjs"
-              target="_blank"
-              className="font-bold hover:underline"
-              rel="noreferrer"
-            >
-              Supabase
-            </a>
+      <header className="border-b">
+        <div className="mx-auto flex h-16 w-full max-w-5xl items-center justify-between px-4 sm:px-6">
+          <Link
+            href="/"
+            className="flex items-center gap-2 font-semibold tracking-tight"
+          >
+            <GraduationCap className="h-5 w-5 text-primary" />
+            <span>Contour Mini-LMS</span>
+          </Link>
+
+          <div className="flex items-center gap-2">
+            <Button asChild variant="outline" size="sm">
+              <Link href="/auth/login">Sign in</Link>
+            </Button>
+            <Button asChild size="sm">
+              <Link href="/auth/sign-up">Sign up</Link>
+            </Button>
+            <ThemeSwitcher />
+          </div>
+        </div>
+      </header>
+
+      <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col justify-center gap-12 px-4 py-16 sm:px-6">
+        <section className="mx-auto max-w-2xl space-y-5 text-center">
+          <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
+            Manage Student Consultations Simply
+          </h1>
+          <p className="text-base text-muted-foreground">
+            Book upcoming consultations, reschedule or cancel as plans change,
+            track completed sessions, and give administrators a unified view
+            across the system.
           </p>
-          <ThemeSwitcher />
-        </footer>
-      </div>
-    </main>
+          <div className="flex justify-center gap-3 pt-2">
+            <Button asChild size="lg">
+              <Link href="/auth/sign-up">Get Started</Link>
+            </Button>
+            <Button asChild variant="outline" size="lg">
+              <Link href="/auth/login">Sign In</Link>
+            </Button>
+          </div>
+        </section>
+
+        <section className="grid gap-4 sm:grid-cols-3">
+          <Card>
+            <CardHeader className="pb-2">
+              <CalendarClock className="mb-2 h-5 w-5 text-primary" />
+              <CardTitle className="text-base">Easy Booking</CardTitle>
+            </CardHeader>
+            <CardContent className="text-sm text-muted-foreground">
+              Schedule consultations in seconds with automatic profile prefill
+              and conflict-free 30-minute time windows.
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CalendarCheck className="mb-2 h-5 w-5 text-primary" />
+              <CardTitle className="text-base">Full Control</CardTitle>
+            </CardHeader>
+            <CardContent className="text-sm text-muted-foreground">
+              Reschedule upcoming sessions, cancel with confirmation, and mark
+              consultations complete or incomplete anytime.
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <ShieldCheck className="mb-2 h-5 w-5 text-primary" />
+              <CardTitle className="text-base">Admin Oversight</CardTitle>
+            </CardHeader>
+            <CardContent className="text-sm text-muted-foreground">
+              Role-based access control gives administrators a searchable,
+              filterable read-only view of every student consultation.
+            </CardContent>
+          </Card>
+        </section>
+      </main>
+
+      <footer className="border-t py-6 text-center text-xs text-muted-foreground">
+        Contour Mini-LMS &mdash; Built with Next.js &amp; Supabase
+      </footer>
+    </div>
   );
 }

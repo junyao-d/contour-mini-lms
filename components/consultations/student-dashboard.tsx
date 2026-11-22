@@ -123,7 +123,7 @@ export function StudentDashboard({
             My Consultations
           </h1>
           <p className="text-sm text-muted-foreground">
-            Book, reschedule, or cancel consultations, and mark them as done once they have taken place.
+            Book, reschedule, or cancel consultations, and mark them as complete once they have taken place.
           </p>
         </div>
         <Button onClick={() => setBookOpen(true)}>
@@ -246,7 +246,7 @@ export function StudentDashboard({
                           </span>
                         )}
                         {item.completed_at && (
-                          <span>Done {formatDateTime(item.completed_at)}</span>
+                          <span>Completed {formatDateTime(item.completed_at)}</span>
                         )}
                         {item.cancelled_at && (
                           <span>
@@ -271,7 +271,7 @@ export function StudentDashboard({
                         onClick={() => void handleToggleComplete(item, true)}
                       >
                         <CheckCircle2 className="mr-1 h-4 w-4" />
-                        Mark as done
+                        Mark as complete
                       </Button>
                       <Button
                         variant="outline"
@@ -316,7 +316,7 @@ export function StudentDashboard({
                           onSelect={() => void handleToggleComplete(item, false)}
                         >
                           <RotateCcw className="mr-2 h-4 w-4" />
-                          Mark as not done
+                          Mark as incomplete
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>

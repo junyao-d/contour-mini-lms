@@ -119,7 +119,7 @@ Responses are `{ data, meta? }` on success and `{ error: { code, message, detail
 | Endpoint | Method | Who | Body / query | Notable errors |
 | --- | --- | --- | --- | --- |
 | `/api/me` | GET | signed in | — | 401 |
-| `/api/consultations` | GET | student | `status` filter: `all`, `upcoming` (scheduled and not yet started; derived, not a stored status), `scheduled`, `completed`, `cancelled`; `search`, `sort`, `page`, `pageSize`; optional `from`/`to` to limit `scheduled_at` | 400, 401, 403 |
+| `/api/consultations` | GET | student | `status` filter: `all`, `scheduled`, `completed`, `cancelled`; `search`, `sort`, `page`, `pageSize`; optional `from`/`to` to limit `scheduled_at` | 400, 401, 403 |
 | `/api/consultations` | POST | student | `{ first_name, last_name, reason, scheduled_at, duration_minutes? }` (default 15) | 400, 403, 409 `TIME_SLOT_CONFLICT`, 415 |
 | `/api/consultations/[id]` | GET | owner or admin | — | 404 (also for other students' ids) |
 | `/api/consultations/[id]` | PATCH | owner | `{ action: "reschedule", scheduled_at, duration_minutes?, reason? }`, `{ action: "toggle_complete", completed }`, `{ action: "cancel" }` | 400, 404, 409 `INVALID_STATUS_TRANSITION` / `CONCURRENT_MODIFICATION` / `TIME_SLOT_CONFLICT`, 415 |
@@ -150,7 +150,7 @@ Datetime rule violations return 400 `VALIDATION_ERROR`; status rule violations r
 
 ## AI usage
 
-I built this with AI assistance throughout: Claude Code for planning and implementation, and other AI assistants for independent reviews. The split was deliberate. AI did the typing and surfaced options; I owned the scope, the business rules and the security/performance trade-offs.
+I built this with AI assistance throughout: Antigravity for planning and implementation, Claude for independent reviews. The split was deliberate. AI did the typing and surfaced options; I owned the scope, the business rules and the security/performance trade-offs.
 
 **1. Scope and design.** I started from the assessment brief and my own experience with booking systems I have used, and asked AI how mainstream booking products handle the same problems. From that I settled the scope and the key assumptions above, and those decided the database schema and the main features.
 
@@ -167,6 +167,5 @@ I built this with AI assistance throughout: Claude Code for planning and impleme
 **Where I changed or overrode AI suggestions (examples):**
 
 - A review suggested only rewording the "60 minutes apart" copy. I decided users need to choose a session length, and asked for a clinic-style picker with 15/30/45/60-minute options (default 15, longer needs booked as another session). That meant a `duration_minutes` column, a new exclusion constraint and a slot picker instead of `datetime-local`.
-- AI recommended skipping an Upcoming/Past split because it conflicts with server-side pagination. I wanted it, so it became an "Upcoming" filter tab backed by the API.
 - AI proposed raising the local password minimum. I kept the default and documented password-only auth as a limitation instead, because the real fix is email OTP or SSO, not a longer password.
 - For the `/admin` redirect, AI offered a role check in the proxy to get a true 307. I kept the simpler page-level redirect and documented the HTTP 200 behaviour, since no data is exposed either way.

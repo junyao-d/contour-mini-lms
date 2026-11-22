@@ -158,9 +158,6 @@ describe("consultation validators", () => {
     });
 
     expect(
-      listConsultationsQuerySchema.safeParse({ status: "upcoming" }).success,
-    ).toBe(true);
-    expect(
       listConsultationsQuerySchema.safeParse({ pageSize: 100 }).success,
     ).toBe(false);
     expect(listConsultationsQuerySchema.safeParse({ page: 0 }).success).toBe(

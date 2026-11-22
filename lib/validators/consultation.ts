@@ -75,10 +75,8 @@ export const updateConsultationSchema = z.discriminatedUnion("action", [
   cancelConsultationSchema,
 ]);
 
-// "upcoming" = scheduled and not yet started; the rest map directly to a status.
 export const consultationStatusFilterSchema = z.enum([
   "all",
-  "upcoming",
   "scheduled",
   "completed",
   "cancelled",

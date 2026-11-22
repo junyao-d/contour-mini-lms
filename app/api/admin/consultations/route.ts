@@ -23,11 +23,7 @@ export async function GET(request: NextRequest) {
       .from("consultations_with_student")
       .select("*", { count: "exact" });
 
-    if (status === "upcoming") {
-      query = query
-        .eq("status", "scheduled")
-        .gt("scheduled_at", new Date().toISOString());
-    } else if (status !== "all") {
+    if (status !== "all") {
       query = query.eq("status", status);
     }
 

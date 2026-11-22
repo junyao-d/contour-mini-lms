@@ -1,6 +1,6 @@
 "use client";
 
-import { Search, ShieldCheck } from "lucide-react";
+import { Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -46,21 +46,6 @@ export function AdminConsultationsView() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <ShieldCheck className="h-6 w-6 text-primary" />
-            <h1 className="text-2xl font-bold tracking-tight">
-              Admin Console &mdash; All Consultations
-            </h1>
-          </div>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Read-only overview of consultations booked by all students across
-            the system.
-          </p>
-        </div>
-      </div>
-
       <SummaryCards summary={summary} />
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

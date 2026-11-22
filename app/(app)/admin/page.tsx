@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { getCurrentSession } from "@/lib/auth/session";
-import { AdminConsultationsView } from "@/components/consultations/admin-consultations-view";
+import { AdminConsole } from "@/components/admin-console";
 
 async function AdminContent() {
   const session = await getCurrentSession();
@@ -15,7 +15,7 @@ async function AdminContent() {
     redirect("/dashboard");
   }
 
-  return <AdminConsultationsView />;
+  return <AdminConsole />;
 }
 
 export default function AdminPage() {

@@ -18,6 +18,7 @@ import { GET as getMe } from "@/app/api/me/route";
 import { POST as createConsultation } from "@/app/api/consultations/route";
 import { GET as getAdminConsultations } from "@/app/api/admin/consultations/route";
 import { PATCH as patchConsultation } from "@/app/api/consultations/[id]/route";
+import { GET as getAdminUsers } from "@/app/api/admin/users/route";
 
 describe("redirect & request security helpers", () => {
   it("blocks open redirect attempts including backslash tricks", () => {
@@ -353,5 +354,105 @@ describe("API Route Handler RBAC & concurrency behavior", () => {
     const json = await res.json();
     expect(json.error.code).toBe("TIME_SLOT_CONFLICT");
     expect(json.error.message).toContain("Can't mark as incomplete");
+  });
+});
+
+describe("GET /api/admin/users", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("returns 403 for non-admins", async () => {
+    mockRequireAdmin.mockRejectedValueOnce(
+      new ApiError(403, "FORBIDDEN", "Admin access is required."),
+    );
+
+    const res = await getAdminUsers(
+      new NextRequest("http://localhost:3000/api/admin/users"),
+    );
+    expect(res.status).toBe(403);
+  });
+
+  it("filters by role and returns paginated users, newest first", async () => {
+    const users = [
+      {
+        id: "11111111-1111-4111-8111-111111111111",
+        email: "admin@contour-lms.local",
+        first_name: "Contour",
+        last_name: "Admin",
+        role: "admin",
+        total_consultations: 0,
+      },
+    ];
+
+    // Chainable stand-in for the PostgREST query builder.
+    const builder = {
+      eq: vi.fn(() => builder),
+      order: vi.fn(() => builder),
+      range: vi.fn().mockResolvedValue({ data: users, count: 1, error: null }),
+    };
+    const select = vi.fn(() => builder);
+    const from = vi.fn(() => ({ select }));
+    mockRequireAdmin.mockResolvedValueOnce({ supabase: { from } });
+
+    const res = await getAdminUsers(
+      new NextRequest("http://localhost:3000/api/admin/users?role=admin&page=1"),
+    );
+
+    expect(res.status).toBe(200);
+    expect(from).toHaveBeenCalledWith("profiles_with_consultation_count");
+    expect(builder.eq).toHaveBeenCalledWith("role", "admin");
+    // Default sort: newest first, no consultation-count ordering.
+    expect(builder.order).toHaveBeenCalledTimes(2);
+    expect(builder.order).toHaveBeenNthCalledWith(1, "created_at", { ascending: false });
+    expect(builder.range).toHaveBeenCalledWith(0, 9);
+    const json = await res.json();
+    expect(json.data).toEqual(users);
+    expect(json.meta.pagination).toEqual({
+      page: 1,
+      pageSize: 10,
+      totalItems: 1,
+      totalPages: 1,
+    });
+  });
+
+  it("sorts by consultation count first, then newest sign-up", async () => {
+    const builder = {
+      eq: vi.fn(() => builder),
+      order: vi.fn(() => builder),
+      range: vi.fn().mockResolvedValue({ data: [], count: 0, error: null }),
+    };
+    const from = vi.fn(() => ({ select: () => builder }));
+
+    for (const [sort, ascending] of [
+      ["consultations_desc", false],
+      ["consultations_asc", true],
+    ] as const) {
+      builder.order.mockClear();
+      mockRequireAdmin.mockResolvedValueOnce({ supabase: { from } });
+      const res = await getAdminUsers(
+        new NextRequest(`http://localhost:3000/api/admin/users?sort=${sort}`),
+      );
+      expect(res.status).toBe(200);
+      expect(builder.eq).not.toHaveBeenCalled();
+      expect(builder.order).toHaveBeenNthCalledWith(1, "total_consultations", { ascending });
+      expect(builder.order).toHaveBeenNthCalledWith(2, "created_at", { ascending: false });
+    }
+  });
+
+  it("rejects an unknown sort option with 400", async () => {
+    mockRequireAdmin.mockResolvedValueOnce({ supabase: { from: vi.fn() } });
+    const res = await getAdminUsers(
+      new NextRequest("http://localhost:3000/api/admin/users?sort=email"),
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it("rejects an unknown role filter with 400", async () => {
+    mockRequireAdmin.mockResolvedValueOnce({ supabase: { from: vi.fn() } });
+    const res = await getAdminUsers(
+      new NextRequest("http://localhost:3000/api/admin/users?role=tutor"),
+    );
+    expect(res.status).toBe(400);
   });
 });

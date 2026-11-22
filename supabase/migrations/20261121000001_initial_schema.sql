@@ -369,6 +369,13 @@ create index idx_consultations_scheduled_at
 create index idx_consultations_created_at
   on public.consultations (created_at desc);
 
+-- Admin user list: newest sign-ups first, optionally filtered by role
+create index idx_profiles_role_created_at
+  on public.profiles (role, created_at desc);
+
+create index idx_profiles_created_at
+  on public.profiles (created_at desc);
+
 -- ----------------------------------------------------------------------------
 -- 6. RBAC Helper & Row-Level Security (RLS)
 -- ----------------------------------------------------------------------------
@@ -475,6 +482,26 @@ join public.profiles p on p.id = c.user_id;
 
 revoke all on public.consultations_with_student from public, anon;
 grant select on public.consultations_with_student to authenticated, service_role;
+
+-- Admin "All Users" list: each profile with the number of consultations it has booked
+-- (all statuses; admins never book, so theirs is 0). security_invoker keeps RLS: admins
+-- see every row, a student sees only their own.
+create view public.profiles_with_consultation_count
+with (security_invoker = true) as
+select
+  p.id,
+  p.email,
+  p.first_name,
+  p.last_name,
+  p.role,
+  p.created_at,
+  count(c.id)::int as total_consultations
+from public.profiles p
+left join public.consultations c on c.user_id = p.id
+group by p.id;
+
+revoke all on public.profiles_with_consultation_count from public, anon;
+grant select on public.profiles_with_consultation_count to authenticated, service_role;
 
 -- Returns consultation counts across all statuses in a single index-backed query.
 -- SECURITY INVOKER ensures Postgres RLS scopes results automatically per caller.

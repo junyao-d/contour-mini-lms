@@ -3,12 +3,21 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(6);
+select plan(11);
 
 -- Total row count as seen without RLS, used to verify the admin sees everything.
 create temp table expected_total as
   select count(*)::bigint as n from public.consultations;
 grant select on expected_total to authenticated;
+
+create temp table expected_profiles as
+  select count(*)::bigint as n from public.profiles;
+grant select on expected_profiles to authenticated;
+
+create temp table expected_alice_bookings as
+  select count(*)::int as n from public.consultations
+  where user_id = '22222222-2222-4222-8222-222222222222';
+grant select on expected_alice_bookings to authenticated;
 
 set local role authenticated;
 
@@ -39,6 +48,26 @@ select is(
   (select count(*) from public.consultations),
   (select n from expected_total),
   'admin sees every consultation in the system'
+);
+
+select is(
+  (select count(*) from public.profiles),
+  (select n from expected_profiles),
+  'admin sees every user profile (All Users tab)'
+);
+
+select is(
+  (select total_consultations from public.profiles_with_consultation_count
+   where id = '22222222-2222-4222-8222-222222222222'),
+  (select n from expected_alice_bookings),
+  'All Users count matches every consultation alice booked (all statuses)'
+);
+
+select is(
+  (select total_consultations from public.profiles_with_consultation_count
+   where id = '11111111-1111-4111-8111-111111111111'),
+  0,
+  'admins have 0 consultations'
 );
 
 -- ---------------------------------------------------------------------------
@@ -72,6 +101,18 @@ select is(
   public.is_admin(),
   false,
   'is_admin() stays false for the student'
+);
+
+select is(
+  (select count(*) from public.profiles),
+  1::bigint,
+  'a student can only see their own profile'
+);
+
+select is(
+  (select count(*) from public.profiles_with_consultation_count),
+  1::bigint,
+  'a student sees only their own row in the user-count view'
 );
 
 select * from finish();

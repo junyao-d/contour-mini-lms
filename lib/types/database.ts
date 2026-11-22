@@ -122,6 +122,18 @@ export type Database = {
         };
         Relationships: [];
       };
+      profiles_with_consultation_count: {
+        Row: {
+          id: string;
+          email: string;
+          first_name: string | null;
+          last_name: string | null;
+          role: AppRole;
+          created_at: string;
+          total_consultations: number;
+        };
+        Relationships: [];
+      };
     };
     Functions: {
       is_admin: {
@@ -160,6 +172,11 @@ export type Database = {
 // Domain DTOs used by API Route Handlers and UI components
 export type Profile = Database["public"]["Tables"]["profiles"]["Row"];
 export type Consultation = Database["public"]["Tables"]["consultations"]["Row"];
+
+export type AdminUser = Pick<
+  Profile,
+  "id" | "email" | "first_name" | "last_name" | "role"
+> & { total_consultations: number };
 
 export type StudentAccountSummary = Pick<
   Profile,

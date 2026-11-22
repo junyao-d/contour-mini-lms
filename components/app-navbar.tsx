@@ -1,34 +1,15 @@
 import Link from "next/link";
 import { GraduationCap, ShieldCheck } from "lucide-react";
-import { createClient } from "@/lib/supabase/server";
+import { getCurrentSession } from "@/lib/auth/session";
 import { Badge } from "@/components/ui/badge";
 import { LogoutButton } from "@/components/logout-button";
 import { ThemeSwitcher } from "@/components/theme-switcher";
 
 export async function AppNavbar() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  let role: "student" | "admin" = "student";
-  let email = user?.email ?? "";
-
-  if (user) {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("email, role")
-      .eq("id", user.id)
-      .maybeSingle();
-
-    if (profile) {
-      role = profile.role;
-      email = profile.email;
-    }
-  }
-
-  const isAdmin = role === "admin";
-  const homeHref = isAdmin ? "/admin" : "/dashboard";
+  const session = await getCurrentSession();
+  const profile = session?.profile ?? null;
+  const isAdmin = profile?.role === "admin";
+  const homeHref = profile ? (isAdmin ? "/admin" : "/dashboard") : "/";
 
   return (
     <div className="mx-auto flex h-16 w-full max-w-5xl items-center justify-between gap-4 px-4 sm:px-6">
@@ -41,7 +22,7 @@ export async function AppNavbar() {
           <span>Contour Mini-LMS</span>
         </Link>
 
-        {user && (
+        {profile && (
           <nav className="flex items-center gap-4 text-sm">
             {isAdmin ? (
               <Link
@@ -64,10 +45,10 @@ export async function AppNavbar() {
       </div>
 
       <div className="flex items-center gap-3">
-        {user && (
+        {profile && (
           <>
             <span className="hidden text-sm text-muted-foreground sm:inline">
-              {email}
+              {profile.email}
             </span>
             <Badge variant={isAdmin ? "default" : "secondary"}>
               {isAdmin ? "Admin" : "Student"}

@@ -53,16 +53,20 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const { supabase, user } = await requireStudent();
+    const { supabase, user, profile } = await requireStudent();
     const body = await parseJsonBody(request);
     const input = createConsultationSchema.parse(body);
+
+    // Enforce canonical profile names server-side whenever present on the account.
+    const firstName = profile.first_name?.trim() || input.first_name;
+    const lastName = profile.last_name?.trim() || input.last_name;
 
     const { data, error } = await supabase
       .from("consultations")
       .insert({
         user_id: user.id,
-        first_name: input.first_name,
-        last_name: input.last_name,
+        first_name: firstName,
+        last_name: lastName,
         reason: input.reason,
         scheduled_at: input.scheduled_at,
         status: "scheduled",

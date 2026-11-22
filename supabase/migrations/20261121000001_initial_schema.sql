@@ -184,6 +184,9 @@ returns trigger
 language plpgsql
 set search_path = ''
 as $$
+declare
+  v_profile_first_name text;
+  v_profile_last_name text;
 begin
   -- Allow migrations, seed scripts, and service-role admin operations
   if current_user in ('postgres', 'supabase_admin', 'service_role')
@@ -195,6 +198,19 @@ begin
     if new.scheduled_at <= now() then
       raise exception 'Consultation datetime must be in the future'
         using errcode = '22023';
+    end if;
+
+    -- Lock attendee names to the caller's profile whenever stored on public.profiles
+    select first_name, last_name
+    into v_profile_first_name, v_profile_last_name
+    from public.profiles
+    where id = new.user_id;
+
+    if v_profile_first_name is not null then
+      new.first_name := v_profile_first_name;
+    end if;
+    if v_profile_last_name is not null then
+      new.last_name := v_profile_last_name;
     end if;
 
     new.status := 'scheduled';
@@ -389,3 +405,59 @@ create policy "consultations_update_own"
     (select auth.uid()) = user_id
     and not (select public.is_admin())
   );
+
+-- ----------------------------------------------------------------------------
+-- 7. Read View & Single-Query Summary Function (SECURITY INVOKER -> RLS active)
+-- ----------------------------------------------------------------------------
+
+-- Joins consultations with student profile fields for single-query Admin search & listing.
+-- `security_invoker = true` ensures caller RLS policies on both tables are strictly enforced.
+create view public.consultations_with_student
+with (security_invoker = true) as
+select
+  c.id,
+  c.user_id,
+  c.first_name,
+  c.last_name,
+  c.reason,
+  c.scheduled_at,
+  c.status,
+  c.completed_at,
+  c.cancelled_at,
+  c.rescheduled_at,
+  c.created_at,
+  c.updated_at,
+  p.email as student_email,
+  p.first_name as student_first_name,
+  p.last_name as student_last_name
+from public.consultations c
+join public.profiles p on p.id = c.user_id;
+
+revoke all on public.consultations_with_student from public, anon;
+grant select on public.consultations_with_student to authenticated, service_role;
+
+-- Returns consultation counts across all statuses in a single index-backed query.
+-- SECURITY INVOKER ensures Postgres RLS scopes results automatically per caller.
+create or replace function public.get_consultation_summary(p_user_id uuid default null)
+returns table (
+  total bigint,
+  scheduled bigint,
+  completed bigint,
+  cancelled bigint
+)
+language sql
+stable
+security invoker
+set search_path = ''
+as $$
+  select
+    count(*)::bigint as total,
+    count(*) filter (where status = 'scheduled')::bigint as scheduled,
+    count(*) filter (where status = 'completed')::bigint as completed,
+    count(*) filter (where status = 'cancelled')::bigint as cancelled
+  from public.consultations
+  where p_user_id is null or user_id = p_user_id;
+$$;
+
+revoke all on function public.get_consultation_summary(uuid) from public;
+grant execute on function public.get_consultation_summary(uuid) to authenticated, service_role;

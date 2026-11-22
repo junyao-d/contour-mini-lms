@@ -38,29 +38,15 @@ export async function updateSession(request: NextRequest) {
     },
   );
 
-  // Do not run code between createServerClient and
-  // supabase.auth.getClaims(). A simple mistake could make it very hard to debug
-  // issues with users being randomly logged out.
-
-  // IMPORTANT: If you remove getClaims() and you use server-side rendering
-  // with the Supabase client, your users may be randomly logged out.
-  const { data } = await supabase.auth.getClaims();
-  const user = data?.claims;
+  // Server-verify the session (also detects sessions invalidated by DB reset/revocation).
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   const pathname = request.nextUrl.pathname;
 
   // Never HTML-redirect API requests; Route Handlers return 401 JSON directly.
   if (pathname.startsWith("/api")) {
     return supabaseResponse;
-  }
-
-  // Send authenticated users away from login/sign-up pages straight to the dashboard.
-  if (
-    user &&
-    (pathname === "/auth/login" || pathname === "/auth/sign-up")
-  ) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/dashboard";
-    return NextResponse.redirect(url);
   }
 
   if (

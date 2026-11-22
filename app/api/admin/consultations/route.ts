@@ -8,6 +8,7 @@ import {
   sanitizeSearchTerm,
 } from "@/lib/api/consultations-query";
 import { handleApiError, jsonSuccess } from "@/lib/api/response";
+import type { AdminConsultation } from "@/lib/types/database";
 
 export async function GET(request: NextRequest) {
   try {
@@ -18,11 +19,8 @@ export async function GET(request: NextRequest) {
     const to = from + pageSize - 1;
 
     let query = supabase
-      .from("consultations")
-      .select(
-        "*, student:profiles!consultations_user_id_fkey(id, email, first_name, last_name)",
-        { count: "exact" },
-      );
+      .from("consultations_with_student")
+      .select("*", { count: "exact" });
 
     if (status !== "all") {
       query = query.eq("status", status);
@@ -30,28 +28,9 @@ export async function GET(request: NextRequest) {
 
     const safeSearch = sanitizeSearchTerm(search);
     if (safeSearch) {
-      // Also match consultations whose student account email matches the search term.
-      const { data: matchingProfiles, error: profileSearchError } =
-        await supabase
-          .from("profiles")
-          .select("id")
-          .ilike("email", `%${safeSearch}%`)
-          .limit(100);
-
-      if (profileSearchError) throw profileSearchError;
-
-      const filters = [
-        `first_name.ilike.%${safeSearch}%`,
-        `last_name.ilike.%${safeSearch}%`,
-        `reason.ilike.%${safeSearch}%`,
-      ];
-
-      const matchingUserIds = (matchingProfiles ?? []).map((p) => p.id);
-      if (matchingUserIds.length > 0) {
-        filters.push(`user_id.in.(${matchingUserIds.join(",")})`);
-      }
-
-      query = query.or(filters.join(","));
+      query = query.or(
+        `first_name.ilike.%${safeSearch}%,last_name.ilike.%${safeSearch}%,reason.ilike.%${safeSearch}%,student_email.ilike.%${safeSearch}%`,
+      );
     }
 
     const [{ data, count, error }, summary] = await Promise.all([
@@ -61,7 +40,19 @@ export async function GET(request: NextRequest) {
 
     if (error) throw error;
 
-    return jsonSuccess(data ?? [], 200, {
+    const rows: AdminConsultation[] = (data ?? []).map(
+      ({ student_email, student_first_name, student_last_name, ...rest }) => ({
+        ...rest,
+        student: {
+          id: rest.user_id,
+          email: student_email,
+          first_name: student_first_name,
+          last_name: student_last_name,
+        },
+      }),
+    );
+
+    return jsonSuccess(rows, 200, {
       pagination: buildPaginationMeta(page, pageSize, count ?? 0),
       summary,
     });

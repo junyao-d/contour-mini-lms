@@ -154,7 +154,7 @@ where email = 'your-admin@example.com';
 ## 4. Overall Implementation Summary & Architecture
 
 ### Key Assumptions
-- Every student signs up before booking (providing First Name and Last Name into `profiles`); the booking form prefills and locks these fields from the user's profile.
+- Every student signs up before booking (providing First Name and Last Name into `profiles`); the booking form prefills and locks these fields from the user's profile, and both `POST /api/consultations` and `guard_consultation_write()` enforce the canonical profile names server-side.
 - Consultations do not model assigned tutors or rooms; each active consultation reserves a **60-minute (1-hour)** window per student (`[scheduled_at, scheduled_at + 60m)`).
 - New bookings and reschedules must be scheduled in the future (`scheduled_at > now()`), while past scheduled consultations can still be marked complete/incomplete.
 - Completed consultations cannot be cancelled directly (must be marked incomplete first), and cancelled consultations are immutable.
@@ -198,6 +198,7 @@ flowchart LR
 - `lib/types/database.ts` — end-to-end TypeScript types wired into both server and browser Supabase clients.
 - `lib/validators/consultation.ts` — Zod v4 schemas for request payloads, UUID params, and list query parameters.
 - `lib/domain/` — framework-free consultation rules: `consultation-transitions.ts` (lifecycle state machine) and `consultation-constants.ts` (centralized `MIN_CONSULTATION_GAP_MINUTES`).
+- `lib/auth/session.ts` — unified server-verified session & profile loader (`getCurrentSession` with React `cache()` for per-request deduplication across layouts and pages).
 - `lib/api/` — shared API infrastructure: `auth.ts` (`requireAuth`, `requireStudent`, `requireAdmin`), `request.ts` (`parseJsonBody` with `Origin` + `Content-Type` validation), `response.ts` (standard JSON envelopes & error mapping), `consultations-query.ts` (pagination, safe search, summary counts), `redirect.ts` (open-redirect prevention).
 - `app/api/**` — REST Route Handlers (`/api/me`, `/api/consultations`, `/api/consultations/[id]`, `/api/admin/consultations`).
 - `app/(app)/` & `components/consultations/` — role-aware app shell, Student Dashboard, consultation dialogs, and read-only Admin Console.
@@ -281,6 +282,10 @@ erDiagram
     - `INSERT`: Authenticated non-admin (`user_id = auth.uid() AND NOT is_admin() AND status = 'scheduled'`).
     - `UPDATE`: Authenticated non-admin owner (`user_id = auth.uid() AND NOT is_admin()`).
     - `DELETE`: Disallowed (enforces soft-cancel auditability).
+
+### Scalability Read View & Summary RPC (`SECURITY INVOKER`)
+- **`public.consultations_with_student` (`WITH (security_invoker = true)`)**: Joins `consultations` with `profiles` so Admin search across `first_name`, `last_name`, `reason`, and `student_email` runs in a single query without pre-fetching/truncating profile IDs — while preserving caller RLS on both tables.
+- **`public.get_consultation_summary(p_user_id uuid default null)` (`SECURITY INVOKER`)**: Computes `total`, `scheduled`, `completed`, and `cancelled` in a single `COUNT(*) FILTER (WHERE ...)` query (cutting every dashboard/admin list request to **2** DB round-trips total while enforcing RLS).
 
 ---
 

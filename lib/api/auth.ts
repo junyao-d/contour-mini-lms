@@ -1,36 +1,16 @@
-import type { User } from "@supabase/supabase-js";
-import { createClient } from "@/lib/supabase/server";
-import type { Profile } from "@/lib/types/database";
+import { loadCurrentSession, type CurrentSession } from "@/lib/auth/session";
 import { ApiError } from "@/lib/api/response";
 
-export interface AuthContext {
-  supabase: Awaited<ReturnType<typeof createClient>>;
-  user: User;
-  profile: Profile;
-}
+export type AuthContext = CurrentSession;
 
 export async function requireAuth(): Promise<AuthContext> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
+  const session = await loadCurrentSession();
 
-  if (authError || !user) {
+  if (!session) {
     throw new ApiError(401, "UNAUTHORIZED", "Authentication required.");
   }
 
-  const { data: profile, error: profileError } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("id", user.id)
-    .single();
-
-  if (profileError || !profile) {
-    throw new ApiError(401, "UNAUTHORIZED", "User profile not found.");
-  }
-
-  return { supabase, user, profile };
+  return session;
 }
 
 export async function requireStudent(): Promise<AuthContext> {

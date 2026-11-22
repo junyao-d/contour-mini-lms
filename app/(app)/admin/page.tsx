@@ -2,28 +2,19 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ShieldAlert } from "lucide-react";
-import { createClient } from "@/lib/supabase/server";
+import { getCurrentSession } from "@/lib/auth/session";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AdminConsultationsView } from "@/components/consultations/admin-consultations-view";
 
 async function AdminContent() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const session = await getCurrentSession();
 
-  if (!user) {
+  if (!session) {
     redirect("/auth/login");
   }
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  if (profile?.role !== "admin") {
+  if (session.profile.role !== "admin") {
     return (
       <Card className="mx-auto max-w-md">
         <CardHeader className="text-center">

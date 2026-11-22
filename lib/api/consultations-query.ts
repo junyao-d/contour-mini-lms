@@ -1,6 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type {
-  ConsultationStatus,
   ConsultationSummary,
   Database,
   PaginationMeta,
@@ -61,30 +60,18 @@ export async function fetchConsultationSummary(
   supabase: SupabaseClient<Database>,
   userId?: string,
 ): Promise<ConsultationSummary> {
-  const statuses: ConsultationStatus[] = ["scheduled", "completed", "cancelled"];
-
-  const counts = await Promise.all(
-    statuses.map(async (status) => {
-      let query = supabase
-        .from("consultations")
-        .select("id", { count: "exact", head: true })
-        .eq("status", status);
-
-      if (userId) {
-        query = query.eq("user_id", userId);
-      }
-
-      const { count, error } = await query;
-      if (error) throw error;
-      return count ?? 0;
-    }),
+  const { data, error } = await supabase.rpc(
+    "get_consultation_summary",
+    userId ? { p_user_id: userId } : {},
   );
 
-  const [scheduled, completed, cancelled] = counts;
+  if (error) throw error;
+
+  const row = data?.[0];
   return {
-    total: scheduled + completed + cancelled,
-    scheduled,
-    completed,
-    cancelled,
+    total: Number(row?.total ?? 0),
+    scheduled: Number(row?.scheduled ?? 0),
+    completed: Number(row?.completed ?? 0),
+    cancelled: Number(row?.cancelled ?? 0),
   };
 }

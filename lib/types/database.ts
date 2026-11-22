@@ -98,7 +98,26 @@ export type Database = {
       };
     };
     Views: {
-      [_ in never]: never;
+      consultations_with_student: {
+        Row: {
+          id: string;
+          user_id: string;
+          first_name: string;
+          last_name: string;
+          reason: string;
+          scheduled_at: string;
+          status: ConsultationStatus;
+          completed_at: string | null;
+          cancelled_at: string | null;
+          rescheduled_at: string | null;
+          created_at: string;
+          updated_at: string;
+          student_email: string;
+          student_first_name: string | null;
+          student_last_name: string | null;
+        };
+        Relationships: [];
+      };
     };
     Functions: {
       is_admin: {
@@ -110,6 +129,17 @@ export type Database = {
           p_scheduled_at: string;
         };
         Returns: string;
+      };
+      get_consultation_summary: {
+        Args: {
+          p_user_id?: string | null;
+        };
+        Returns: {
+          total: number;
+          scheduled: number;
+          completed: number;
+          cancelled: number;
+        }[];
       };
     };
     Enums: {

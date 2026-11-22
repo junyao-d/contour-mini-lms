@@ -132,7 +132,7 @@ describe("API Route Handler RBAC & concurrency behavior", () => {
     expect(res.status).toBe(403);
   });
 
-  it("returns 201 on a valid student booking", async () => {
+  it("returns 201 on a valid student booking and enforces canonical profile names", async () => {
     const createdRow = {
       id: "aaaaaaaa-aaaa-4aaa-8aaa-000000000099",
       user_id: "22222222-2222-4222-8222-222222222222",
@@ -151,15 +151,20 @@ describe("API Route Handler RBAC & concurrency behavior", () => {
     mockRequireStudent.mockResolvedValueOnce({
       supabase: { from },
       user: { id: createdRow.user_id },
-      profile: { id: createdRow.user_id, role: "student" },
+      profile: {
+        id: createdRow.user_id,
+        role: "student",
+        first_name: "Alice",
+        last_name: "Chen",
+      },
     });
 
     const req = new NextRequest("http://localhost:3000/api/consultations", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
-        first_name: "Alice",
-        last_name: "Chen",
+        first_name: "Spoofed",
+        last_name: "Name",
         reason: "Exam prep",
         scheduled_at: createdRow.scheduled_at,
       }),
@@ -167,6 +172,12 @@ describe("API Route Handler RBAC & concurrency behavior", () => {
 
     const res = await createConsultation(req);
     expect(res.status).toBe(201);
+    expect(insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        first_name: "Alice",
+        last_name: "Chen",
+      }),
+    );
     const json = await res.json();
     expect(json.data.id).toBe(createdRow.id);
   });

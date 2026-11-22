@@ -8,19 +8,16 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { MIN_CONSULTATION_GAP_MINUTES } from "@/lib/domain/consultation-constants";
-import { createClient } from "@/lib/supabase/server";
+import { getCurrentSession } from "@/lib/auth/session";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ThemeSwitcher } from "@/components/theme-switcher";
 
 async function AuthRedirectCheck() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const session = await getCurrentSession();
 
-  if (user) {
-    redirect("/dashboard");
+  if (session) {
+    redirect(session.profile.role === "admin" ? "/admin" : "/dashboard");
   }
 
   return null;

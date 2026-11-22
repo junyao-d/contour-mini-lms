@@ -1,32 +1,23 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { getCurrentSession } from "@/lib/auth/session";
 import { StudentDashboard } from "@/components/consultations/student-dashboard";
 
 async function DashboardContent() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const session = await getCurrentSession();
 
-  if (!user) {
+  if (!session) {
     redirect("/auth/login");
   }
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("first_name, last_name, role")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  if (profile?.role === "admin") {
+  if (session.profile.role === "admin") {
     redirect("/admin");
   }
 
   return (
     <StudentDashboard
-      profileFirstName={profile?.first_name ?? null}
-      profileLastName={profile?.last_name ?? null}
+      profileFirstName={session.profile.first_name}
+      profileLastName={session.profile.last_name}
     />
   );
 }

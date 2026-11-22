@@ -1,6 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
+import { getSafeRedirectPath } from "@/lib/api/redirect";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import {
@@ -38,7 +39,30 @@ export function LoginForm({
         password,
       });
       if (error) throw error;
-      router.push("/dashboard");
+
+      const rawNext = new URLSearchParams(window.location.search).get("next");
+      const safeNext = getSafeRedirectPath(rawNext, "");
+
+      let destination = "/dashboard";
+      const meResponse = await fetch("/api/me", { cache: "no-store" });
+      if (meResponse.ok) {
+        const meJson = (await meResponse.json()) as {
+          data?: { role?: string };
+        };
+        const isAdmin = meJson.data?.role === "admin";
+        if (isAdmin) {
+          destination = safeNext.startsWith("/admin") ? safeNext : "/admin";
+        } else {
+          destination =
+            safeNext &&
+            !safeNext.startsWith("/auth") &&
+            !safeNext.startsWith("/admin")
+              ? safeNext
+              : "/dashboard";
+        }
+      }
+
+      router.push(destination);
       router.refresh();
     } catch (error: unknown) {
       setError(error instanceof Error ? error.message : "An error occurred");

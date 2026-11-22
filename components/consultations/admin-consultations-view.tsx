@@ -1,6 +1,5 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
 import { Search, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -15,94 +14,35 @@ import {
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StatusBadge } from "@/components/consultations/status-badge";
 import { SummaryCards } from "@/components/consultations/summary-cards";
-import { formatDateTime, readApiErrorMessage } from "@/lib/format";
-import type {
-  AdminConsultation,
-  ConsultationListMeta,
-  ConsultationSummary,
-} from "@/lib/types/database";
+import { useConsultationList } from "@/hooks/use-consultation-list";
+import { formatDateTime } from "@/lib/format";
+import type { AdminConsultation } from "@/lib/types/database";
 import type {
   ConsultationSortOption,
   ConsultationStatusFilter,
 } from "@/lib/validators/consultation";
 
-const EMPTY_SUMMARY: ConsultationSummary = {
-  total: 0,
-  scheduled: 0,
-  completed: 0,
-  cancelled: 0,
-};
-
 export function AdminConsultationsView() {
-  const [consultations, setConsultations] = useState<AdminConsultation[]>([]);
-  const [summary, setSummary] = useState<ConsultationSummary>(EMPTY_SUMMARY);
-  const [status, setStatus] = useState<ConsultationStatusFilter>("all");
-  const [searchInput, setSearchInput] = useState("");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [sort, setSort] = useState<ConsultationSortOption>("scheduled_at_desc");
-  const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [totalItems, setTotalItems] = useState(0);
-
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setSearchQuery(searchInput.trim());
-      setPage(1);
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [searchInput]);
-
-  const fetchAllConsultations = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const params = new URLSearchParams({
-        status,
-        sort,
-        page: String(page),
-        pageSize: "10",
-      });
-      if (searchQuery) {
-        params.set("search", searchQuery);
-      }
-
-      const response = await fetch(
-        `/api/admin/consultations?${params.toString()}`,
-        { cache: "no-store" },
-      );
-
-      if (!response.ok) {
-        setError(
-          await readApiErrorMessage(
-            response,
-            "Failed to load system consultations.",
-          ),
-        );
-        return;
-      }
-
-      const json = (await response.json()) as {
-        data: AdminConsultation[];
-        meta: ConsultationListMeta;
-      };
-
-      setConsultations(json.data);
-      setSummary(json.meta.summary);
-      setTotalPages(json.meta.pagination.totalPages);
-      setTotalItems(json.meta.pagination.totalItems);
-    } catch {
-      setError("Network error while loading system consultations.");
-    } finally {
-      setIsLoading(false);
-    }
-  }, [status, searchQuery, sort, page]);
-
-  useEffect(() => {
-    void fetchAllConsultations();
-  }, [fetchAllConsultations]);
+  const {
+    items: consultations,
+    summary,
+    status,
+    setStatus,
+    searchInput,
+    setSearchInput,
+    searchQuery,
+    sort,
+    setSort,
+    page,
+    setPage,
+    totalPages,
+    totalItems,
+    isLoading,
+    error,
+  } = useConsultationList<AdminConsultation>(
+    "/api/admin/consultations",
+    "Failed to load system consultations.",
+  );
 
   return (
     <div className="space-y-6">
@@ -126,10 +66,7 @@ export function AdminConsultationsView() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <Tabs
           value={status}
-          onValueChange={(value) => {
-            setStatus(value as ConsultationStatusFilter);
-            setPage(1);
-          }}
+          onValueChange={(value) => setStatus(value as ConsultationStatusFilter)}
         >
           <TabsList>
             <TabsTrigger value="all">All</TabsTrigger>
@@ -152,10 +89,7 @@ export function AdminConsultationsView() {
 
           <Select
             value={sort}
-            onValueChange={(value) => {
-              setSort(value as ConsultationSortOption);
-              setPage(1);
-            }}
+            onValueChange={(value) => setSort(value as ConsultationSortOption)}
           >
             <SelectTrigger className="w-full sm:w-44">
               <SelectValue placeholder="Sort by" />

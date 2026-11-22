@@ -60,35 +60,6 @@ The Supabase CLI is pinned as a `devDependency` in `package.json`, so no global 
 
 ---
 
-### If want to connect to Hosted Supabase Cloud
-
-1. Create a project at https://supabase.com/dashboard.
-2. Apply the database migration using **either** the Supabase CLI:
-   ```bash
-   npx supabase link --project-ref <your-project-ref>
-   npx supabase db push
-   ```
-   **or** by pasting the contents of `supabase/migrations/20261121000001_initial_schema.sql` into **Supabase Dashboard → SQL Editor** and running it.
-3. Copy `.env.example` to `.env.local` and populate values from **Project Settings → API**:
-   ```env
-   NEXT_PUBLIC_SUPABASE_URL=https://<your-project-ref>.supabase.co
-   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=<your-publishable-or-anon-key>
-   ```
-4. Configure **Authentication → URL Configuration** in Supabase Dashboard so `Site URL` is `http://localhost:3000` and `Redirect URLs` includes `http://localhost:3000/**`.
-5. Run the development server:
-   ```bash
-   npm run dev
-   ```
-
----
-
-### Switching Between Local and Remote Supabase
-
-1. Update `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` in `.env.local` to point to either `http://127.0.0.1:54321` (local) or `https://<project-ref>.supabase.co` (remote).
-2. Restart `npm run dev`.
-3. Sign out or clear `localhost:3000` cookies so the browser does not send a JWT signed by the previous instance.
-
----
 
 ### Development npm Scripts
 
@@ -128,7 +99,7 @@ Running `npm run db:start` or `npm run db:reset` seeds 3 pre-confirmed accounts 
 | **Student** | `bob@contour-lms.local` | `Password123!` | `/dashboard` (2 personal consultations) |
 
 ### Create new Admin account (if needed)
-New sign-ups are always assigned the `student` role by the database trigger (preventing client-side privilege escalation). To promote a user to `admin` on hosted Supabase, sign up normally and run the following in **Supabase Dashboard → SQL Editor** in Cloud or update the role type via table view in local supabase studio:
+New sign-ups are always assigned the `student` role by the database trigger (preventing client-side privilege escalation). To promote a user to `admin`, update the role type via **Table Editor** in local supabase studio or run following statement in the **SQL Editor**:
 
 ```sql
 update public.profiles
@@ -140,7 +111,7 @@ where email = 'your-admin@example.com';
 1. **Student Flow** (log in as `alice@contour-lms.local` or sign up as a new student):
    - Book a future consultation (verify First & Last Name are prefilled from profile).
    - Attempt to book another consultation within 60 minutes of an active one → verify `409` conflict message.
-   - Toggle **Mark Complete** / **Mark Incomplete** → verify status badge and KPI counts update.
+   - Click **Mark Complete** / **Mark Incomplete** → verify status badge and KPI counts update.
    - **Reschedule** an upcoming consultation → verify new time and `Rescheduled ...` audit timestamp appear.
    - **Cancel** an upcoming consultation → confirm modal, verify status turns `Cancelled` and edit/complete controls lock.
    - Visit `/admin` directly → verify `403 Access Denied` screen.
@@ -154,11 +125,21 @@ where email = 'your-admin@example.com';
 ## 4. Overall Implementation Summary & Architecture
 
 ### Key Assumptions
-- Every student signs up before booking (providing First Name and Last Name into `profiles`); the booking form prefills and locks these fields from the user's profile, and both `POST /api/consultations` and `guard_consultation_write()` enforce the canonical profile names server-side.
-- Consultations do not model assigned tutors or rooms; each active consultation reserves a **60-minute (1-hour)** window per student (`[scheduled_at, scheduled_at + 60m)`).
-- New bookings and reschedules must be scheduled in the future (`scheduled_at > now()`), while past scheduled consultations can still be marked complete/incomplete.
-- Completed consultations cannot be cancelled directly (must be marked incomplete first), and cancelled consultations are immutable.
-- Admins are read-only observers across all student consultations and do not book personal consultations.
+1. **Students sign up with First Name & Last Name, and consultation booking locks those names to the user's profile (UI, API, and DB trigger).**
+   - **Why for this assessment:** Keeps student identity consistent across bookings, avoids name spoofing via direct API/PostgREST calls, and satisfies the booking form's First/Last Name requirement without adding a separate profile-settings flow.
+   - **In a production LMS:** Provide a dedicated Account/Profile settings page (`PATCH /api/me`) allowing students to update their display name (or sync from an institutional SSO/IdP like SAML/OIDC) while recording historical snapshots on past consultations.
+2. **Each active consultation reserves a fixed 60-minute window per student (`[scheduled_at, scheduled_at + 60m)`), without modeling tutors or rooms.**
+   - **Why for this assessment:** The prompt requires only attendee name, reason, and datetime; a fixed 60-minute PostgreSQL GiST exclusion constraint cleanly demonstrates race-condition-free overlap prevention without over-modeling unrequested entities.
+   - **In a production LMS:** Model tutors, rooms/video links, working-hour availability blocks, configurable session durations (e.g., 30/45/60 min), and buffer times with exclusion constraints enforced per tutor as well as per student.
+3. **New bookings and reschedules require a future datetime (`scheduled_at > now()`), while any non-cancelled consultation can be toggled between complete and incomplete.**
+   - **Why for this assessment:** Prevents nonsensical past bookings while ensuring reviewers can immediately test the required Complete/Incomplete toggle on newly booked upcoming consultations (and lets students mark resolved questions early).
+   - **In a production LMS:** Gate completion until after `scheduled_at` (or require tutor attendance sign-off), enforce a cutoff window for late reschedules/cancellations (e.g., at least 2 hours before start), and automatically mark unattended past sessions as `no_show`.
+4. **Completed consultations cannot be cancelled directly (must be marked incomplete first), and cancelled consultations are soft-cancelled and immutable.**
+   - **Why for this assessment:** Prevents contradictory states (both completed and cancelled) and preserves full audit visibility for both students and the Admin view without needing a separate audit-log table.
+   - **In a production LMS:** Append every booking, reschedule, completion, and cancellation to an immutable `consultation_events` audit log table (preserving previous datetimes, actor IDs, and cancellation reasons) with configurable retention/re-booking workflows.
+5. **Admins are strictly read-only observers across all student consultations and do not book personal consultations.**
+   - **Why for this assessment:** Matches the prompt's note (*"Read-only is perfectly fine for the Admin view. We want to see how you define roles."*) and showcases clean, unambiguous role separation across UI, Route Handlers (`requireStudent` vs. `requireAdmin`), and Postgres RLS.
+   - **In a production LMS:** Support granular RBAC permissions (e.g., `student`, `tutor`, `coordinator`, `admin`), admin/staff moderation actions (reassigning tutors, cancelling/rescheduling on a student's behalf), and an admin user-management UI instead of SQL-based role promotion.
 
 ### Core Capabilities
 - **Authentication**: Sign up (capturing First Name, Last Name, Email, Password), login, logout, and password recovery powered by Supabase Auth (`@supabase/ssr`).
@@ -201,7 +182,7 @@ flowchart LR
 - `lib/auth/session.ts` — unified server-verified session & profile loader (`getCurrentSession` with React `cache()` for per-request deduplication across layouts and pages).
 - `lib/api/` — shared API infrastructure: `auth.ts` (`requireAuth`, `requireStudent`, `requireAdmin`), `request.ts` (`parseJsonBody` with `Origin` + `Content-Type` validation), `response.ts` (standard JSON envelopes & error mapping), `consultations-query.ts` (pagination, safe search, summary counts), `redirect.ts` (open-redirect prevention).
 - `app/api/**` — REST Route Handlers (`/api/me`, `/api/consultations`, `/api/consultations/[id]`, `/api/admin/consultations`).
-- `app/(app)/` & `components/consultations/` — role-aware app shell, Student Dashboard, consultation dialogs, and read-only Admin Console.
+- `app/(app)/`, `components/consultations/`, & `hooks/use-consultation-list.ts` — role-aware app shell, Student Dashboard, consultation dialogs, read-only Admin Console, and shared `AbortController`-backed list hook.
 
 ---
 
@@ -306,7 +287,7 @@ All endpoints return consistent JSON envelopes:
 
 ---
 
-## 7. Design Justifications & 
+## 7. Design Justifications
 
 ### Design & Security Justifications
 - **REST API Route Handlers over Server Actions**: Keeps data access explicit, HTTP-semantic (`201`, `400`, `401`, `403`, `404`, `409`, `415`), reusable across web/mobile/external clients, and straightforward to test independently. `proxy.ts` excludes `/api/*` from login HTML redirects so unauthenticated API calls always receive `401` JSON.
@@ -327,9 +308,9 @@ All endpoints return consistent JSON envelopes:
 
 ## 8. Future Improvements
 
-### Businiess Logic Improvements
+### Business Logic Improvements
 - **User Profile Management Page**: Allow students to update their own `first_name` / `last_name` (backed by a dedicated `PATCH /api/me` route and column-scoped RLS policy, while keeping `role` locked by `prevent_role_change()`).
-- **Tutor / Staff Scheduling & Availability**: Model instructors, working hours, and configurable consultation durations with exclusion constraints per tutor as well as per student.
+- **Tutor / Staff Scheduling & Completion Sign-Off**: Model instructors, working hours, and configurable consultation durations (with exclusion constraints per tutor as well as per student), and optionally gate completion until `scheduled_at <= now()` or tutor attendance confirmation.
 - **Audit Log Table**: Record full reschedule/status-change history (`consultation_events`) rather than only the most recent `rescheduled_at` timestamp.
 - **Email / Calendar Notifications**: Send confirmation, reminder, and cancellation notifications (and `.ics` calendar invites) on booking/reschedule/cancel events.
 
@@ -337,3 +318,34 @@ All endpoints return consistent JSON envelopes:
 ### Technical Improvements
 - **JWT Role Claim Caching & Rate Limiting**: Add a Supabase Custom Access Token Hook to avoid per-request `profiles` lookups at high scale, and add Redis/Upstash rate limiting on auth and booking endpoints.
 - **Playwright E2E Suite**: Add automated browser end-to-end tests running against ephemeral local Supabase instances in CI.
+
+
+---
+
+### If want to connect to Hosted Supabase Cloud
+
+1. Create a project at https://supabase.com/dashboard.
+2. Apply the database migration using **either** the Supabase CLI:
+   ```bash
+   npx supabase link --project-ref <your-project-ref>
+   npx supabase db push
+   ```
+   **or** by pasting the contents of `supabase/migrations/20261121000001_initial_schema.sql` into **Supabase Dashboard → SQL Editor** and running it.
+3. Copy `.env.example` to `.env.local` and populate values from **Project Settings → API**:
+   ```env
+   NEXT_PUBLIC_SUPABASE_URL=https://<your-project-ref>.supabase.co
+   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=<your-publishable-or-anon-key>
+   ```
+4. Configure **Authentication → URL Configuration** in Supabase Dashboard so `Site URL` is `http://localhost:3000` and `Redirect URLs` includes `http://localhost:3000/**`.
+5. Run the development server:
+   ```bash
+   npm run dev
+   ```
+
+---
+
+### Switching Between Local and Remote Supabase
+
+1. Update `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` in `.env.local` to point to either `http://127.0.0.1:54321` (local) or `https://<project-ref>.supabase.co` (remote).
+2. Restart `npm run dev`.
+3. Sign out or clear `localhost:3000` cookies so the browser does not send a JWT signed by the previous instance.

@@ -218,6 +218,7 @@ begin
     new.cancelled_at := null;
     new.rescheduled_at := null;
     new.created_at := now();
+    new.updated_at := now();
     return new;
   end if;
 

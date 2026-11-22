@@ -1,10 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { CalendarClock, Plus, Search, XCircle } from "lucide-react";
+import { useState } from "react";
+import { CalendarClock, CheckCircle2, Plus, RotateCcw, Search, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -19,12 +18,9 @@ import { CancelConsultationDialog } from "@/components/consultations/cancel-cons
 import { RescheduleConsultationDialog } from "@/components/consultations/reschedule-consultation-dialog";
 import { StatusBadge } from "@/components/consultations/status-badge";
 import { SummaryCards } from "@/components/consultations/summary-cards";
+import { useConsultationList } from "@/hooks/use-consultation-list";
 import { formatDateTime, readApiErrorMessage } from "@/lib/format";
-import type {
-  Consultation,
-  ConsultationListMeta,
-  ConsultationSummary,
-} from "@/lib/types/database";
+import type { Consultation } from "@/lib/types/database";
 import type {
   ConsultationSortOption,
   ConsultationStatusFilter,
@@ -35,90 +31,36 @@ interface StudentDashboardProps {
   profileLastName: string | null;
 }
 
-const EMPTY_SUMMARY: ConsultationSummary = {
-  total: 0,
-  scheduled: 0,
-  completed: 0,
-  cancelled: 0,
-};
-
 export function StudentDashboard({
   profileFirstName,
   profileLastName,
 }: StudentDashboardProps) {
-  const [consultations, setConsultations] = useState<Consultation[]>([]);
-  const [summary, setSummary] = useState<ConsultationSummary>(EMPTY_SUMMARY);
-  const [status, setStatus] = useState<ConsultationStatusFilter>("all");
-  const [searchInput, setSearchInput] = useState("");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [sort, setSort] = useState<ConsultationSortOption>("scheduled_at_desc");
-  const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [totalItems, setTotalItems] = useState(0);
+  const {
+    items: consultations,
+    summary,
+    status,
+    setStatus,
+    searchInput,
+    setSearchInput,
+    searchQuery,
+    sort,
+    setSort,
+    page,
+    setPage,
+    totalPages,
+    totalItems,
+    isLoading,
+    error,
+    setError,
+    refresh,
+  } = useConsultationList<Consultation>("/api/consultations");
 
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [togglingId, setTogglingId] = useState<string | null>(null);
-
   const [bookOpen, setBookOpen] = useState(false);
   const [rescheduleTarget, setRescheduleTarget] = useState<Consultation | null>(
     null,
   );
   const [cancelTarget, setCancelTarget] = useState<Consultation | null>(null);
-
-  // Debounce search input before hitting the API
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setSearchQuery(searchInput.trim());
-      setPage(1);
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [searchInput]);
-
-  const fetchConsultations = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const params = new URLSearchParams({
-        status,
-        sort,
-        page: String(page),
-        pageSize: "10",
-      });
-      if (searchQuery) {
-        params.set("search", searchQuery);
-      }
-
-      const response = await fetch(`/api/consultations?${params.toString()}`, {
-        cache: "no-store",
-      });
-
-      if (!response.ok) {
-        setError(
-          await readApiErrorMessage(response, "Failed to load consultations."),
-        );
-        return;
-      }
-
-      const json = (await response.json()) as {
-        data: Consultation[];
-        meta: ConsultationListMeta;
-      };
-
-      setConsultations(json.data);
-      setSummary(json.meta.summary);
-      setTotalPages(json.meta.pagination.totalPages);
-      setTotalItems(json.meta.pagination.totalItems);
-    } catch {
-      setError("Network error while loading consultations.");
-    } finally {
-      setIsLoading(false);
-    }
-  }, [status, searchQuery, sort, page]);
-
-  useEffect(() => {
-    void fetchConsultations();
-  }, [fetchConsultations]);
 
   const handleToggleComplete = async (
     consultation: Consultation,
@@ -146,7 +88,7 @@ export function StudentDashboard({
         return;
       }
 
-      await fetchConsultations();
+      refresh();
     } catch {
       setError("Network error while updating consultation status.");
     } finally {
@@ -176,10 +118,7 @@ export function StudentDashboard({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <Tabs
           value={status}
-          onValueChange={(value) => {
-            setStatus(value as ConsultationStatusFilter);
-            setPage(1);
-          }}
+          onValueChange={(value) => setStatus(value as ConsultationStatusFilter)}
         >
           <TabsList>
             <TabsTrigger value="all">All</TabsTrigger>
@@ -202,10 +141,7 @@ export function StudentDashboard({
 
           <Select
             value={sort}
-            onValueChange={(value) => {
-              setSort(value as ConsultationSortOption);
-              setPage(1);
-            }}
+            onValueChange={(value) => setSort(value as ConsultationSortOption)}
           >
             <SelectTrigger className="w-full sm:w-44">
               <SelectValue placeholder="Sort by" />
@@ -268,99 +204,90 @@ export function StudentDashboard({
                 className={isCancelled ? "opacity-75" : undefined}
               >
                 <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="flex items-start gap-3">
-                    <Checkbox
-                      id={`complete-${item.id}`}
-                      checked={isCompleted}
-                      disabled={isCancelled || isBusy}
-                      aria-label={
-                        isCompleted
-                          ? "Mark consultation as incomplete"
-                          : "Mark consultation as complete"
-                      }
-                      onCheckedChange={(checked) => {
-                        void handleToggleComplete(item, checked === true);
-                      }}
-                      className="mt-1"
-                    />
+                  <div className="space-y-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span
+                        className={`font-semibold ${
+                          isCompleted
+                            ? "line-through text-muted-foreground"
+                            : ""
+                        }`}
+                      >
+                        {item.first_name} {item.last_name}
+                      </span>
+                      <StatusBadge status={item.status} />
+                    </div>
 
-                    <div className="space-y-1.5">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span
-                          className={`font-semibold ${
-                            isCompleted
-                              ? "line-through text-muted-foreground"
-                              : ""
-                          }`}
-                        >
-                          {item.first_name} {item.last_name}
+                    <p className="text-sm text-foreground/90">{item.reason}</p>
+
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                      <span className="inline-flex items-center gap-1">
+                        <CalendarClock className="h-3.5 w-3.5" />
+                        {formatDateTime(item.scheduled_at)}
+                      </span>
+                      {item.rescheduled_at && (
+                        <span>
+                          Rescheduled {formatDateTime(item.rescheduled_at)}
                         </span>
-                        <StatusBadge status={item.status} />
-                      </div>
-
-                      <p className="text-sm text-foreground/90">
-                        {item.reason}
-                      </p>
-
-                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                        <span className="inline-flex items-center gap-1">
-                          <CalendarClock className="h-3.5 w-3.5" />
-                          {formatDateTime(item.scheduled_at)}
+                      )}
+                      {item.completed_at && (
+                        <span>
+                          Completed {formatDateTime(item.completed_at)}
                         </span>
-                        {item.rescheduled_at && (
-                          <span>
-                            Rescheduled {formatDateTime(item.rescheduled_at)}
-                          </span>
-                        )}
-                        {item.completed_at && (
-                          <span>
-                            Completed {formatDateTime(item.completed_at)}
-                          </span>
-                        )}
-                        {item.cancelled_at && (
-                          <span>
-                            Cancelled {formatDateTime(item.cancelled_at)}
-                          </span>
-                        )}
-                      </div>
+                      )}
+                      {item.cancelled_at && (
+                        <span>
+                          Cancelled {formatDateTime(item.cancelled_at)}
+                        </span>
+                      )}
                     </div>
                   </div>
 
-                  <div className="flex shrink-0 items-center gap-2 pl-7 sm:pl-0">
-                    {!isCancelled && (
+                  {!isCancelled && (
+                    <div className="flex shrink-0 flex-wrap items-center gap-2">
                       <Button
-                        variant="ghost"
+                        variant={isCompleted ? "outline" : "secondary"}
                         size="sm"
                         disabled={isBusy}
                         onClick={() =>
                           void handleToggleComplete(item, !isCompleted)
                         }
                       >
-                        {isCompleted ? "Mark Incomplete" : "Mark Complete"}
+                        {isCompleted ? (
+                          <>
+                            <RotateCcw className="mr-1 h-4 w-4" />
+                            Mark Incomplete
+                          </>
+                        ) : (
+                          <>
+                            <CheckCircle2 className="mr-1 h-4 w-4" />
+                            Mark Complete
+                          </>
+                        )}
                       </Button>
-                    )}
 
-                    {isScheduled && (
-                      <>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setRescheduleTarget(item)}
-                        >
-                          Reschedule
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-destructive hover:text-destructive"
-                          onClick={() => setCancelTarget(item)}
-                        >
-                          <XCircle className="mr-1 h-4 w-4" />
-                          Cancel
-                        </Button>
-                      </>
-                    )}
-                  </div>
+                      {isScheduled && (
+                        <>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setRescheduleTarget(item)}
+                          >
+                            Reschedule
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-destructive hover:text-destructive"
+                            onClick={() => setCancelTarget(item)}
+                          >
+                            <XCircle className="mr-1 h-4 w-4" />
+                            Cancel
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             );
@@ -399,10 +326,7 @@ export function StudentDashboard({
         onOpenChange={setBookOpen}
         profileFirstName={profileFirstName}
         profileLastName={profileLastName}
-        onSuccess={() => {
-          setPage(1);
-          void fetchConsultations();
-        }}
+        onSuccess={() => refresh(true)}
       />
 
       <RescheduleConsultationDialog
@@ -410,7 +334,7 @@ export function StudentDashboard({
         onOpenChange={(open) => {
           if (!open) setRescheduleTarget(null);
         }}
-        onSuccess={() => void fetchConsultations()}
+        onSuccess={() => refresh()}
       />
 
       <CancelConsultationDialog
@@ -418,7 +342,7 @@ export function StudentDashboard({
         onOpenChange={(open) => {
           if (!open) setCancelTarget(null);
         }}
-        onSuccess={() => void fetchConsultations()}
+        onSuccess={() => refresh()}
       />
     </div>
   );

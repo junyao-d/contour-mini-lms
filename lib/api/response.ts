@@ -99,6 +99,31 @@ export function handleApiError(error: unknown) {
     );
   }
 
+  if (pgCode === "22023") {
+    return NextResponse.json(
+      {
+        error: {
+          code: "UNPROCESSABLE_ENTITY",
+          message:
+            "The requested consultation change violates a scheduling or status rule.",
+        },
+      },
+      { status: 422 },
+    );
+  }
+
+  if (pgCode === "42501") {
+    return NextResponse.json(
+      {
+        error: {
+          code: "FORBIDDEN",
+          message: "You do not have permission to perform this action.",
+        },
+      },
+      { status: 403 },
+    );
+  }
+
   console.error("[API Error]", error);
   return NextResponse.json(
     {

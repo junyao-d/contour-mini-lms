@@ -71,14 +71,22 @@ describe("redirect & request security helpers", () => {
     await expect(parseJsonBody(validReq)).resolves.toEqual({ hello: "world" });
   });
 
-  it("maps Postgres 23P01 exclusion violation to 409 TIME_SLOT_CONFLICT", async () => {
-    const response = handleApiError({ code: "23P01" });
-    expect(response.status).toBe(409);
-    const json = await response.json();
-    expect(json.error.code).toBe("TIME_SLOT_CONFLICT");
-    expect(json.error.message).toContain(
+  it("maps Postgres 23P01, 22023, and 42501 errors cleanly without leaking SQL internals", async () => {
+    const conflictRes = handleApiError({ code: "23P01" });
+    expect(conflictRes.status).toBe(409);
+    const conflictJson = await conflictRes.json();
+    expect(conflictJson.error.code).toBe("TIME_SLOT_CONFLICT");
+    expect(conflictJson.error.message).toContain(
       `${MIN_CONSULTATION_GAP_MINUTES} minutes`,
     );
+
+    const ruleRes = handleApiError({ code: "22023" });
+    expect(ruleRes.status).toBe(422);
+    expect((await ruleRes.json()).error.code).toBe("UNPROCESSABLE_ENTITY");
+
+    const permRes = handleApiError({ code: "42501" });
+    expect(permRes.status).toBe(403);
+    expect((await permRes.json()).error.code).toBe("FORBIDDEN");
   });
 });
 

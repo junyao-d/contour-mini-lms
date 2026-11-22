@@ -294,9 +294,9 @@ All endpoints return consistent JSON envelopes:
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | `/api/me` | `GET` | Authenticated (`requireAuth`) | — | `200` Profile (`id`, `email`, `first_name`, `last_name`, `role`) | `401` |
 | `/api/consultations` | `GET` | Student (`requireStudent`) | `?status=all\|scheduled\|completed\|cancelled&search=&sort=scheduled_at_desc\|scheduled_at_asc\|created_at_desc&page=1&pageSize=10` | `200` Own consultations + `meta.pagination` + `meta.summary` | `400`, `401`, `403` |
-| `/api/consultations` | `POST` | Student (`requireStudent`) | `{ first_name, last_name, reason, scheduled_at }` (future ISO datetime) | `201` Created consultation | `400`, `401`, `403`, `409` (`TIME_SLOT_CONFLICT`), `415` |
+| `/api/consultations` | `POST` | Student (`requireStudent`) | `{ first_name, last_name, reason, scheduled_at }` (future ISO datetime) | `201` Created consultation | `400`, `401`, `403`, `409` (`TIME_SLOT_CONFLICT`), `415`, `422` |
 | `/api/consultations/[id]` | `GET` | Owner or Admin (`requireAuth` + RLS) | UUID path param | `200` Consultation | `400`, `401`, `404` |
-| `/api/consultations/[id]` | `PATCH` | Student Owner (`requireStudent`) | Discriminated union on `action`:<br>• `{ action: "reschedule", scheduled_at, reason? }`<br>• `{ action: "toggle_complete", completed: boolean }`<br>• `{ action: "cancel" }` | `200` Updated consultation | `400`, `401`, `403`, `404`, `409` (`INVALID_STATUS_TRANSITION`, `CONCURRENT_MODIFICATION`, `TIME_SLOT_CONFLICT`), `415` |
+| `/api/consultations/[id]` | `PATCH` | Student Owner (`requireStudent`) | Discriminated union on `action`:<br>• `{ action: "reschedule", scheduled_at, reason? }`<br>• `{ action: "toggle_complete", completed: boolean }`<br>• `{ action: "cancel" }` | `200` Updated consultation | `400`, `401`, `403`, `404`, `409` (`INVALID_STATUS_TRANSITION`, `CONCURRENT_MODIFICATION`, `TIME_SLOT_CONFLICT`), `415`, `422` |
 | `/api/admin/consultations` | `GET` | Admin (`requireAdmin`) | `?status=&search=&sort=&page=&pageSize=` *(search matches student name, email, and reason)* | `200` All consultations joined with `student` + `meta` | `400`, `401`, `403` |
 
 ---

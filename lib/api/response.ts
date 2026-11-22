@@ -80,7 +80,7 @@ export function handleApiError(error: unknown) {
         error: {
           code: "TIME_SLOT_CONFLICT",
           message:
-            "You already have a scheduled consultation within 60 minutes (1 hour) of this time.",
+            "You already have a scheduled consultation within 1 hour of this time.",
         },
       },
       { status: 409 },

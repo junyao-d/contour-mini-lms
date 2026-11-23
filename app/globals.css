@@ -3,26 +3,28 @@
 @tailwind utilities;
 
 @layer base {
+  /* Light theme: academic navy on cool paper, with gold reserved for the brand mark. */
   :root {
-    --background: 0 0% 100%;
-    --foreground: 0 0% 3.9%;
+    --background: 220 23% 97.5%; /* #F7F8FA paper */
+    --foreground: 221 51% 15.9%; /* #14213D navy ink */
     --card: 0 0% 100%;
-    --card-foreground: 0 0% 3.9%;
+    --card-foreground: 221 51% 15.9%;
     --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 3.9%;
-    --primary: 0 0% 9%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 0 0% 96.1%;
-    --secondary-foreground: 0 0% 9%;
-    --muted: 0 0% 96.1%;
-    --muted-foreground: 0 0% 45.1%;
-    --accent: 0 0% 96.1%;
-    --accent-foreground: 0 0% 9%;
-    --destructive: 0 84.2% 60.2%;
+    --popover-foreground: 221 51% 15.9%;
+    --primary: 214 52% 24.5%; /* #1E3A5F navy */
+    --primary-foreground: 220 27% 97.8%;
+    --secondary: 216 31% 93.7%;
+    --secondary-foreground: 214 52% 24.5%;
+    --muted: 214 26% 94.7%;
+    --muted-foreground: 219 13% 41.2%; /* #5B6577, 5.9:1 on white */
+    --accent: 217 39% 93.5%;
+    --accent-foreground: 214 52% 24.5%;
+    --destructive: 4 76% 40%; /* #B42318 */
     --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 89.8%;
-    --input: 0 0% 89.8%;
-    --ring: 0 0% 3.9%;
+    --border: 217 24% 89.2%;
+    --input: 217 24% 89.2%;
+    --ring: 214 52% 24.5%;
+    --brand: 42 59% 43.5%; /* #B08A2E gold, logo only */
     --chart-1: 12 76% 61%;
     --chart-2: 173 58% 39%;
     --chart-3: 197 37% 24%;
@@ -38,6 +40,7 @@
     --popover: 0 0% 3.9%;
     --popover-foreground: 0 0% 98%;
     --primary: 0 0% 98%;
+    --brand: 0 0% 98%; /* dark mode keeps the logo in the primary colour */
     --primary-foreground: 0 0% 9%;
     --secondary: 0 0% 14.9%;
     --secondary-foreground: 0 0% 98%;
@@ -67,8 +70,9 @@
   }
 }
 
-/* react-day-picker (booking time picker): map its theme to the app's tokens. */
-.session-calendar {
+/* react-day-picker (booking time picker): map its theme to the app's tokens.
+   Doubled class beats the library's own .rdp-root defaults, which load later. */
+.rdp-root.session-calendar {
   --rdp-accent-color: hsl(var(--primary));
   --rdp-accent-background-color: hsl(var(--accent));
   --rdp-today-color: hsl(var(--primary));

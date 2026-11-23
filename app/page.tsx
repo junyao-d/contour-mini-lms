@@ -36,7 +36,7 @@ export default function HomePage() {
             href="/"
             className="flex items-center gap-2 font-semibold tracking-tight"
           >
-            <GraduationCap className="h-5 w-5 text-primary" />
+            <GraduationCap className="h-5 w-5 text-brand" />
             <span>Contour Mini-LMS</span>
           </Link>
 

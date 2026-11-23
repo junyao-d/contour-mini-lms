@@ -35,6 +35,7 @@ import { RescheduleConsultationDialog } from "@/components/consultations/resched
 import { StatusBadge } from "@/components/consultations/status-badge";
 import { SummaryCards } from "@/components/consultations/summary-cards";
 import { ProfileDialog } from "@/components/profile/profile-dialog";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useConsultationList } from "@/hooks/use-consultation-list";
 import { hasStarted } from "@/lib/domain/consultation-transitions";
 import {
@@ -130,7 +131,7 @@ export function StudentDashboard({
             My Consultations
           </h1>
           <p className="text-sm text-muted-foreground">
-            Book, reschedule, or cancel consultations, and mark them as complete once they have taken place.
+            Book, reschedule, or cancel consultations.
           </p>
         </div>
         <div className="flex gap-2">
@@ -240,12 +241,13 @@ export function StudentDashboard({
                 }
               >
                 <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="space-y-2">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="inline-flex items-center gap-1.5 font-semibold">
-                        <CalendarClock className="h-4 w-4 text-muted-foreground" />
-                        {formatSessionRange(item.scheduled_at, item.duration_minutes)}
-                      </span>
+                  <div className="min-w-0 flex-1 space-y-2">
+                    {/* Time on its own line, badges always on the line below. */}
+                    <p className="flex items-center gap-1.5 font-semibold">
+                      <CalendarClock className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      {formatSessionRange(item.scheduled_at, item.duration_minutes)}
+                    </p>
+                    <div className="flex flex-wrap items-center gap-1.5">
                       <StatusBadge status={item.status} scheduledAt={item.scheduled_at} />
                     </div>
 
@@ -271,43 +273,49 @@ export function StudentDashboard({
                   </div>
 
                   {isScheduled && (
-                    <div className="flex shrink-0 flex-wrap items-center gap-2">
+                    <div className="flex shrink-0 flex-wrap items-center gap-2 sm:justify-end">
+                      {notStartedYet ? (
+                        // Disabled buttons ignore the pointer, so the tooltip sits on a
+                        // focusable wrapper (hover or keyboard focus shows it).
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span tabIndex={0} className="inline-flex rounded-md">
+                              <Button variant="secondary" size="sm" disabled>
+                                <CheckCircle2 className="mr-1 h-4 w-4" />
+                                Mark as complete
+                              </Button>
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent>Available after the session starts</TooltipContent>
+                        </Tooltip>
+                      ) : (
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          disabled={isBusy}
+                          onClick={() => void handleToggleComplete(item, true)}
+                        >
+                          <CheckCircle2 className="mr-1 h-4 w-4" />
+                          Mark as complete
+                        </Button>
+                      )}
                       <Button
                         variant="secondary"
-                        size="sm"
-                        disabled={isBusy || notStartedYet}
-                        title={
-                          notStartedYet
-                            ? "Available after the session starts"
-                            : undefined
-                        }
-                        onClick={() => void handleToggleComplete(item, true)}
-                      >
-                        <CheckCircle2 className="mr-1 h-4 w-4" />
-                        Mark as complete
-                      </Button>
-                      <Button
-                        variant="outline"
                         size="sm"
                         onClick={() => setRescheduleTarget(item)}
                       >
                         Reschedule
                       </Button>
                       <Button
-                        variant="ghost"
+                        variant="secondary"
                         size="sm"
-                        className="text-destructive hover:text-destructive"
+                        // Muted rust instead of alarm red: 5.3:1 light / 5.8:1 dark on the secondary bg.
+                        className="text-[#9C4A2E] hover:text-[#9C4A2E] dark:text-[#D98E6A] dark:hover:text-[#D98E6A]"
                         onClick={() => setCancelTarget(item)}
                       >
                         <XCircle className="mr-1 h-4 w-4" />
                         Cancel
                       </Button>
-
-                      {notStartedYet && (
-                        <span className="basis-full text-xs text-muted-foreground">
-                          Available after the session starts.
-                        </span>
-                      )}
                     </div>
                   )}
 

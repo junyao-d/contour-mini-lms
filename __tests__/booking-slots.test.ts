@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { buildDaySlots } from "@/lib/domain/booking-slots";
-import { formatSessionRange, getSessionEnd } from "@/lib/format";
+import {
+  formatSessionDate,
+  formatSessionRange,
+  formatSessionTimes,
+  getSessionEnd,
+} from "@/lib/format";
 
 // Local-time dates keep these tests independent of the machine's timezone.
 const day = new Date(2026, 11, 1); // 1 Dec 2026
@@ -66,5 +71,25 @@ describe("session range formatting", () => {
     expect(text).toMatch(/6:45/);
     expect(text).toMatch(/7:45/);
     expect(text.match(/2026/g)).toHaveLength(1);
+  });
+});
+
+describe("two-line session formatting (admin table)", () => {
+  it("splits a same-day session into a date and a time range", () => {
+    const start = new Date(2027, 0, 1, 21, 0).toISOString();
+    expect(formatSessionDate(start)).toMatch(/2027/);
+    const times = formatSessionTimes(start, 45);
+    expect(times).toMatch(/9:00/);
+    expect(times).toMatch(/9:45/);
+    expect(times).not.toMatch(/2027/);
+  });
+
+  it("marks a session that ends after midnight instead of adding a numeric date", () => {
+    const start = new Date(2026, 11, 1, 23, 30).toISOString();
+    const times = formatSessionTimes(start, 60);
+    expect(times).toMatch(/11:30/);
+    expect(times).toMatch(/12:30/);
+    expect(times).toMatch(/\(next day\)/);
+    expect(times).not.toMatch(/\//);
   });
 });

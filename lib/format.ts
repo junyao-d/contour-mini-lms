@@ -40,6 +40,39 @@ export function formatSessionRange(
 }
 
 /**
+ * Date part of a session, e.g. "Fri, 1 Jan 2027" (for two-line layouts).
+ */
+export function formatSessionDate(startIso: string): string {
+  return new Intl.DateTimeFormat(undefined, {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(new Date(startIso));
+}
+
+/**
+ * Time part of a session, e.g. "9:00 – 9:45 pm". A session that ends after midnight is
+ * marked "(next day)" rather than letting Intl add an ambiguous numeric date.
+ */
+export function formatSessionTimes(
+  startIso: string,
+  durationMinutes: number,
+): string {
+  const start = new Date(startIso);
+  const end = getSessionEnd(startIso, durationMinutes);
+  const time = new Intl.DateTimeFormat(undefined, {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+
+  if (start.toDateString() === end.toDateString()) {
+    return time.formatRange(start, end);
+  }
+  return `${time.format(start)} – ${time.format(end)} (next day)`;
+}
+
+/**
  * Formats just the time of day, e.g. "6:45 pm".
  */
 export function formatTimeOfDay(date: Date): string {

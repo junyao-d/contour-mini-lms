@@ -15,7 +15,11 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StatusBadge } from "@/components/consultations/status-badge";
 import { SummaryCards } from "@/components/consultations/summary-cards";
 import { useConsultationList } from "@/hooks/use-consultation-list";
-import { formatDateTime, formatSessionRange } from "@/lib/format";
+import {
+  formatDateTime,
+  formatSessionDate,
+  formatSessionTimes,
+} from "@/lib/format";
 import type { AdminConsultation } from "@/lib/types/database";
 import type {
   ConsultationSortOption,
@@ -137,7 +141,7 @@ export function AdminConsultationsView() {
                     <div className="font-medium">
                       {item.first_name} {item.last_name}
                     </div>
-                    <div className="text-xs text-muted-foreground">
+                    <div className="whitespace-nowrap text-xs text-muted-foreground">
                       {item.student?.email ?? "Unknown account"}
                     </div>
                   </td>
@@ -146,11 +150,14 @@ export function AdminConsultationsView() {
                     <p className="line-clamp-3">{item.reason}</p>
                   </td>
 
-                  <td className="whitespace-nowrap px-4 py-3 align-top">
-                    <div>{formatSessionRange(item.scheduled_at, item.duration_minutes)}</div>
+                  <td className="px-4 py-3 align-top">
+                    <div className="whitespace-nowrap">{formatSessionDate(item.scheduled_at)}</div>
+                    <div className="whitespace-nowrap text-muted-foreground">
+                      {formatSessionTimes(item.scheduled_at, item.duration_minutes)}
+                    </div>
                     {item.rescheduled_at && (
                       <div className="text-xs text-muted-foreground">
-                        Rescheduled {formatDateTime(item.rescheduled_at)}
+                        Rescheduled
                       </div>
                     )}
                   </td>
